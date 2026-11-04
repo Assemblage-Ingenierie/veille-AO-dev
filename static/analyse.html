@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analyse AO — Assemblage ingénierie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ai-rouge:       #E30513;
+  --ai-violet:      #30323E;
+  --ai-gris:        #DFE4E8;
+  --ai-rouge-clair: #F9E1E3;
+  --ai-gris-clair:  #F2F2F2;
+  --ai-noir70:      #4D4D4D;
+  --surface:        #FFFFFF;
+  --border:         #DFE4E8;
+  --radius:         4px;
+  --shadow:         0 1px 4px rgba(0,0,0,.09);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-clair);
+  color:#000;font-size:13.5px;line-height:1.5}
+
+/* ── Sidebar ── */
+.layout-wrapper{display:flex;min-height:100vh}
+.sidebar{width:175px;flex-shrink:0;background:var(--ai-gris);
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  display:flex;flex-direction:column;
+  border-right:1px solid #CDD2D6}
+.sidebar-brand{padding:1rem 1rem .85rem;border-bottom:1px solid #CDD2D6;
+  display:flex;flex-direction:column;gap:.45rem}
+.sidebar-brand img{width:100%;height:auto;max-width:130px}
+.sidebar-brand-sub{font-size:.68rem;color:var(--ai-noir70);line-height:1.35}
+.sidebar-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ai-noir70);padding:.85rem 1rem .25rem}
+.sidebar-nav{display:flex;align-items:center;
+  padding:.6rem 1rem;font-size:.82rem;font-weight:600;
+  color:var(--ai-violet);text-decoration:none;
+  transition:background .12s;border-left:3px solid transparent;line-height:1.2}
+.sidebar-nav:hover{background:rgba(48,50,62,.1)}
+.sidebar-nav.active{color:var(--ai-rouge);border-left-color:var(--ai-rouge);
+  background:rgba(227,5,19,.06)}
+.layout-content{flex:1;min-width:0}
+
+/* ── Layout ── */
+.container{max-width:1100px;margin:0 auto;padding:1.2rem 1rem}
+
+/* ── Page title bar ── */
+.page-title{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1rem}
+.page-title h2{font-size:1.05rem;font-weight:700;color:var(--ai-violet)}
+.page-title p{font-size:.8rem;color:var(--ai-noir70);margin-top:.15rem}
+.count-chip{background:var(--ai-violet);color:#fff;padding:.2rem .6rem;
+  border-radius:3px;font-size:.78rem;font-weight:700}
+
+/* ── AO Card ── */
+.ao-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  margin-bottom:1rem;overflow:hidden;transition:box-shadow .15s}
+.ao-card:hover{box-shadow:0 3px 10px rgba(0,0,0,.12)}
+
+/* Card strip (titre + actions) */
+.card-strip{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:1rem;padding:.85rem 1rem .7rem;
+  border-bottom:1px solid var(--border);background:var(--ai-gris-clair)}
+.card-strip-left{display:flex;align-items:flex-start;gap:.7rem;flex:1;min-width:0}
+.card-strip-right{display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+
+.card-badge-col{display:flex;flex-direction:column;align-items:center;gap:.35rem;flex-shrink:0}
+
+/* Bailleur badge */
+.badge{display:inline-block;padding:.15rem .45rem;border-radius:2px;
+  font-size:.73rem;font-weight:700;white-space:nowrap}
+.badge-bm   {background:var(--ai-gris);    color:var(--ai-violet)}
+.badge-pnud {background:var(--ai-violet);  color:#fff}
+.badge-giz  {background:var(--ai-gris-clair);color:var(--ai-violet);border:1px solid var(--ai-gris)}
+.badge-berd {background:var(--ai-noir70);  color:#fff}
+.badge-afd  {background:#fff;color:var(--ai-violet);border:1px solid var(--ai-violet)}
+
+/* Pertinence dot */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.dot-haute    {background:var(--ai-rouge)}
+.dot-moyenne  {background:var(--ai-violet)}
+.dot-averifier{background:#94a3b8}
+
+.card-title-block{flex:1;min-width:0}
+.card-title{font-size:.95rem;font-weight:700;color:var(--ai-violet);
+  line-height:1.35;margin-bottom:.3rem}
+.card-meta{display:flex;flex-wrap:wrap;gap:.35rem .7rem;font-size:.77rem;color:var(--ai-noir70)}
+.card-meta-item{display:flex;align-items:center;gap:.2rem}
+
+/* Triage buttons (large) */
+.triage-btns{display:flex;align-items:center;gap:2px}
+.triage-btn{background:none;border:1px solid transparent;cursor:pointer;font-size:1.1rem;
+  line-height:1;padding:3px 6px;opacity:.2;transition:opacity .12s,transform .1s,background .1s;
+  border-radius:4px;font-family:inherit}
+.triage-btn:hover{opacity:.7;transform:scale(1.15)}
+.triage-btn.active{opacity:1;background:var(--ai-gris);border-color:var(--border)}
+
+/* State class on card */
+.ao-card.triage-pertinent   .card-strip{border-left:4px solid var(--ai-rouge)}
+.ao-card.triage-pre-tri     .card-strip{border-left:4px solid var(--ai-violet)}
+.ao-card.triage-non-pertinent .card-strip{border-left:4px solid #94a3b8}
+.ao-card.triage-non-pertinent{opacity:.55}
+
+/* Link button */
+.btn-link{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .7rem;
+  border:1px solid var(--border);border-radius:3px;font-size:.78rem;font-weight:600;
+  color:var(--ai-violet);text-decoration:none;background:var(--surface);transition:all .12s}
+.btn-link:hover{border-color:var(--ai-violet);background:var(--ai-gris)}
+
+/* Card main: 2-column grid (meta left | mission right) */
+.card-main{display:grid;grid-template-columns:180px 1fr}
+@media(max-width:700px){.card-main{grid-template-columns:1fr}}
+.card-col-left{padding:.8rem 1rem;border-right:1px solid var(--border);
+  background:var(--ai-gris-clair);display:flex;flex-direction:column;gap:.25rem}
+.card-col-right{padding:.8rem 1rem}
+.meta-row{font-size:.78rem;color:var(--ai-noir70)}
+.meta-row.urgent{color:#b91c1c;font-weight:700}
+
+/* Mission section header (right col) */
+.mission-hd{font-size:.72rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--ai-rouge);margin-bottom:.35rem;
+  display:flex;align-items:center;gap:.3rem}
+
+/* Criteria strip at bottom */
+.card-criteria{padding:.75rem 1rem;border-top:1px solid var(--border);
+  background:var(--ai-gris-clair)}
+
+/* Loading state */
+.loading-state{display:flex;align-items:center;gap:.5rem;
+  color:var(--ai-noir70);font-size:.82rem;padding:.3rem 0}
+.spinner-sm{width:14px;height:14px;border:2px solid var(--ai-gris);
+  border-top-color:var(--ai-violet);border-radius:50%;
+  animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Detail section title (criteria) */
+.detail-section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--ai-rouge);margin-bottom:.35rem;
+  display:flex;align-items:center;gap:.3rem}
+.detail-text{font-size:.82rem;color:#000;line-height:1.55;white-space:pre-wrap;
+  max-height:220px;overflow-y:auto;padding-right:.2rem}
+.detail-text::-webkit-scrollbar{width:4px}
+.detail-text::-webkit-scrollbar-thumb{background:var(--ai-gris);border-radius:2px}
+/* Cache badge */
+.detail-cache-badge{display:flex;align-items:center;gap:.35rem;
+  font-size:.7rem;color:var(--ai-noir70);
+  margin-top:.55rem;padding-top:.4rem;border-top:1px solid var(--ai-gris)}
+.cache-refresh-btn{background:none;border:none;cursor:pointer;
+  font-size:.7rem;color:var(--ai-rouge);padding:0;font-family:inherit;line-height:1}
+.cache-refresh-btn:hover{text-decoration:underline}
+
+/* Docs list */
+.docs-list{display:flex;flex-direction:column;gap:.3rem}
+.doc-link{display:inline-flex;align-items:center;gap:.3rem;
+  font-size:.8rem;color:var(--ai-violet);text-decoration:none;
+  padding:.15rem .4rem;border-radius:3px;background:var(--surface);
+  border:1px solid var(--border);transition:all .12s;word-break:break-all}
+.doc-link:hover{border-color:var(--ai-violet);background:var(--ai-gris)}
+
+/* Note (GIZ, etc.) */
+.detail-note{font-size:.78rem;color:var(--ai-noir70);font-style:italic;
+  padding:.4rem .6rem;border-left:3px solid var(--ai-gris);background:var(--surface);
+  border-radius:0 3px 3px 0;margin-top:.4rem}
+
+/* Error state */
+.error-state{font-size:.8rem;color:var(--ai-rouge);padding:.3rem 0;
+  display:flex;align-items:center;gap:.4rem}
+
+/* Empty state */
+.empty-page{text-align:center;padding:4rem 1rem;color:var(--ai-noir70)}
+.empty-page .icon{font-size:2.5rem;display:block;margin-bottom:.75rem}
+.empty-page a{color:var(--ai-rouge);font-weight:600}
+
+/* ── Mobile header & sidebar overlay ── */
+.mobile-header{display:none;align-items:center;height:48px;
+  background:var(--ai-gris);border-bottom:1px solid #CDD2D6;
+  padding:0 .75rem;position:fixed;top:0;left:0;right:0;z-index:190;gap:.5rem}
+.mobile-header-title{flex:1;text-align:center;font-size:.84rem;font-weight:700;
+  color:var(--ai-violet);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hamburger{background:none;border:none;cursor:pointer;font-size:1.3rem;
+  line-height:1;padding:6px 8px;color:var(--ai-violet);font-family:inherit;flex-shrink:0}
+.mobile-notif-btn{background:none;border:none;cursor:pointer;font-size:1.1rem;
+  padding:6px 8px;color:var(--ai-violet);font-family:inherit;
+  position:relative;flex-shrink:0;text-decoration:none}
+.mobile-badge{position:absolute;top:2px;right:2px;min-width:14px;height:14px;
+  padding:0 3px;background:var(--ai-rouge);color:#fff;border-radius:7px;
+  font-size:.58rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199}
+
+/* ── Filter toggle button ── */
+.filter-toggle-btn{display:flex;align-items:center;gap:.4rem;
+  background:var(--ai-violet);color:#fff;border:none;border-radius:3px;
+  padding:.32rem .75rem;font-size:.82rem;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:background .12s;flex-shrink:0}
+.filter-toggle-btn:hover{background:#3d4050}
+.filter-active-badge{display:inline-flex;align-items:center;justify-content:center;
+  min-width:16px;height:16px;padding:0 4px;background:var(--ai-rouge);
+  color:#fff;border-radius:8px;font-size:.62rem;font-weight:700}
+
+/* ── Filter drawer ── */
+.filter-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:210}
+.filter-drawer{position:fixed;top:0;right:0;height:100vh;width:300px;
+  background:var(--surface);border-left:1px solid var(--border);
+  box-shadow:-4px 0 16px rgba(0,0,0,.15);z-index:220;
+  display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .25s ease}
+.filter-drawer.open{transform:translateX(0)}
+.filter-drawer-overlay.open{display:block}
+.filter-drawer-head{display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 1rem;border-bottom:1px solid var(--border);
+  background:var(--ai-gris-clair)}
+.filter-drawer-head h3{font-size:.9rem;font-weight:700;color:var(--ai-violet)}
+.filter-drawer-close{background:none;border:none;font-size:1.2rem;cursor:pointer;
+  color:var(--ai-noir70);padding:2px 6px;font-family:inherit}
+.filter-drawer-body{flex:1;overflow-y:auto;padding:.9rem 1rem}
+.filter-section-title{font-size:.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.07em;color:var(--ai-rouge);margin-bottom:.4rem;margin-top:.7rem}
+.filter-section-title:first-child{margin-top:0}
+.filter-chip-group{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.2rem}
+.filter-chip{display:inline-flex;align-items:center;gap:.2rem;padding:.22rem .5rem;
+  border:1px solid var(--border);border-radius:3px;cursor:pointer;
+  font-size:.78rem;transition:all .12s;user-select:none;font-family:inherit;background:#fff}
+.filter-chip input{width:13px;height:13px;accent-color:var(--ai-violet);cursor:pointer}
+.filter-chip:has(input:checked){border-color:var(--ai-violet);
+  background:var(--ai-gris);color:var(--ai-violet)}
+.filter-search-input{width:100%;padding:.32rem .55rem;border:1px solid var(--border);
+  border-radius:3px;font-size:.82rem;font-family:inherit;color:#000}
+.filter-search-input:focus{outline:none;border-color:var(--ai-violet)}
+.filter-date-input{padding:.3rem .5rem;border:1px solid var(--border);border-radius:3px;
+  font-size:.82rem;font-family:inherit;color:#000;width:100%}
+.filter-drawer-foot{padding:.75rem 1rem;border-top:1px solid var(--border);
+  display:flex;gap:.6rem;background:var(--ai-gris-clair)}
+
+/* ── Triage bar (mobile only) ── */
+.triage-bar{display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--surface);border-top:2px solid var(--border);
+  box-shadow:0 -3px 12px rgba(0,0,0,.12);z-index:150;
+  flex-direction:column;padding:.4rem .75rem .5rem}
+.triage-bar-context{font-size:.72rem;color:var(--ai-noir70);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  margin-bottom:.35rem;font-style:italic}
+.triage-bar-btns{display:flex;gap:.5rem}
+.triage-bar-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;
+  padding:.55rem .3rem;border:1px solid var(--border);border-radius:4px;
+  background:#fff;cursor:pointer;font-size:.78rem;font-weight:600;
+  font-family:inherit;transition:all .12s;min-height:44px}
+.triage-bar-btn:hover{background:var(--ai-gris)}
+.triage-bar-btn.active-npert{background:var(--ai-gris-clair);border-color:#94a3b8;color:#475569}
+.triage-bar-btn.active-pretri{background:var(--ai-gris);border-color:var(--ai-violet);color:var(--ai-violet)}
+.triage-bar-btn.active-pert{background:var(--ai-rouge-clair);border-color:var(--ai-rouge);color:var(--ai-rouge)}
+
+/* ── Sidebar badge (notifications) */
+.sidebar-badge{display:inline-flex;align-items:center;justify-content:center;
+  min-width:16px;height:16px;padding:0 4px;background:var(--ai-rouge);
+  color:#fff;border-radius:8px;font-size:.62rem;font-weight:700;
+  margin-left:auto;flex-shrink:0}
+.sidebar-spacer{flex:1}
+.sidebar-user{padding:.55rem 1rem .5rem;border-top:1px solid #CDD2D6}
+.sidebar-user-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ai-noir70);margin-bottom:.3rem}
+.user-select{width:100%;padding:.28rem .42rem;border:1px solid #CDD2D6;
+  border-radius:3px;font-size:.78rem;font-family:inherit;color:var(--ai-violet);
+  background:#fff;cursor:pointer}
+.user-select:focus{outline:none;border-color:var(--ai-violet)}
+
+/* Watermark */
+.ai-watermark{position:fixed;bottom:16px;right:16px;width:48px;
+  opacity:.18;pointer-events:none;z-index:100}
+
+@media(max-width:768px){
+  .mobile-header{display:flex}
+  .layout-wrapper{display:block;padding-top:48px}
+  .sidebar{position:fixed;top:0;left:0;height:100vh;
+    transform:translateX(-100%);transition:transform .25s ease;z-index:200;overflow-y:auto}
+  body.sidebar-open .sidebar{transform:translateX(0)}
+  body.sidebar-open .sidebar-overlay{display:block}
+  .triage-bar{display:flex}
+  .filter-drawer{width:100%;border-left:none;border-top:1px solid var(--border);
+    top:auto;bottom:0;height:85vh;border-radius:14px 14px 0 0}
+  .filter-drawer.open{transform:translateX(0)}
+  .filter-drawer-overlay.open{display:block}
+  #cards-container{padding-bottom:90px}
+  .container{padding:.7rem .75rem}
+  .page-title{flex-wrap:wrap;gap:.4rem}
+}
+@media(max-width:480px){
+  .card-main{grid-template-columns:1fr}
+  .card-col-left{border-right:none;border-bottom:1px solid var(--border)}
+  .triage-bar-btn{font-size:.72rem;padding:.5rem .2rem}
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+<header class="mobile-header">
+  <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+  <span class="mobile-header-title">Analyse AO</span>
+  <a href="/pertinentes" class="mobile-notif-btn" aria-label="Notifications">
+    🔔<span class="mobile-badge" id="mobile-badge" style="display:none"></span>
+  </a>
+</header>
+
+<!-- Filter drawer -->
+<div class="filter-drawer-overlay" id="filter-drawer-overlay" onclick="closeFilterDrawer()"></div>
+<div class="filter-drawer" id="filter-drawer">
+  <div class="filter-drawer-head">
+    <h3>⚙ Filtres</h3>
+    <button class="filter-drawer-close" onclick="closeFilterDrawer()">✕</button>
+  </div>
+  <div class="filter-drawer-body">
+    <div class="filter-section-title">Bailleur</div>
+    <div class="filter-chip-group">
+      <label class="filter-chip"><input type="checkbox" class="fd-bailleur" value="Banque Mondiale" checked> BM</label>
+      <label class="filter-chip"><input type="checkbox" class="fd-bailleur" value="PNUD" checked> PNUD</label>
+      <label class="filter-chip"><input type="checkbox" class="fd-bailleur" value="GIZ" checked> GIZ</label>
+      <label class="filter-chip"><input type="checkbox" class="fd-bailleur" value="BERD" checked> BERD</label>
+      <label class="filter-chip"><input type="checkbox" class="fd-bailleur" value="AFD" checked> AFD</label>
+    </div>
+    <div class="filter-section-title">Pertinence</div>
+    <div class="filter-chip-group">
+      <label class="filter-chip"><input type="checkbox" class="fd-pertinence" value="Haute" checked> 🔴 Haute</label>
+      <label class="filter-chip"><input type="checkbox" class="fd-pertinence" value="Moyenne" checked> 🟣 Moyenne</label>
+      <label class="filter-chip"><input type="checkbox" class="fd-pertinence" value="À vérifier" checked> ⚪ À vérifier</label>
+    </div>
+    <div class="filter-section-title">Deadline ≥</div>
+    <input type="date" class="filter-date-input" id="fd-deadline-from">
+    <div class="filter-section-title" style="margin-top:.65rem">Recherche</div>
+    <input type="text" class="filter-search-input" id="fd-search" placeholder="Mot dans le titre, pays…">
+  </div>
+  <div class="filter-drawer-foot">
+    <button class="btn btn-outline" onclick="resetCardFilters()" style="flex:1">Réinitialiser</button>
+    <button class="btn btn-primary" onclick="applyCardFilters();closeFilterDrawer()" style="flex:2">Appliquer ✓</button>
+  </div>
+</div>
+
+<!-- Triage bar (mobile) -->
+<div class="triage-bar" id="triage-bar">
+  <div class="triage-bar-context" id="triage-bar-title">Faites défiler les cartes…</div>
+  <div class="triage-bar-btns">
+    <button class="triage-bar-btn" id="tbar-npert" data-val="non-pertinent" onclick="triageBarAction('non-pertinent')">🗑️ Non pert.</button>
+    <button class="triage-bar-btn" id="tbar-pretri" data-val="pre-tri" onclick="triageBarAction('pre-tri')">🔄 Pré-Tri</button>
+    <button class="triage-bar-btn" id="tbar-pert" data-val="pertinent" onclick="triageBarAction('pertinent')">⭐ Pertinent</button>
+  </div>
+</div>
+
+<div class="layout-wrapper">
+
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <img src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
+    <span class="sidebar-brand-sub">Plateforme de veille - AO DEV</span>
+  </div>
+  <span class="sidebar-label">Navigation</span>
+  <a class="sidebar-nav" href="/">Veille</a>
+  <a class="sidebar-nav active" href="/analyse">Analyse AO</a>
+  <a class="sidebar-nav" href="/pertinentes" style="justify-content:space-between">
+    Offres pertinentes
+    <span class="sidebar-badge" id="assign-badge" style="display:none">0</span>
+  </a>
+  <a class="sidebar-nav" href="/params">Paramètres</a>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-user">
+    <div class="sidebar-user-label">Je suis</div>
+    <select class="user-select" id="current-user-select" onchange="onUserChange(this.value)">
+      <option value="">— Choisir —</option>
+    </select>
+  </div>
+</nav>
+
+<div class="layout-content">
+<div class="container">
+
+  <div class="page-title">
+    <div>
+      <h2>📊 Analyse des AO en Pré-Tri</h2>
+      <p>Données enrichies chargées depuis chaque bailleur · Triage persistant dans le navigateur</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <button class="filter-toggle-btn" onclick="toggleFilterDrawer()" id="filter-toggle-btn">
+        ⚙ Filtres<span class="filter-active-badge" id="active-filter-badge" style="display:none">0</span>
+      </button>
+      <span class="count-chip" id="count-chip">—</span>
+    </div>
+  </div>
+
+  <div id="cards-container">
+    <div class="empty-page">
+      <span class="icon">⏳</span>
+      Chargement…
+    </div>
+  </div>
+
+</div><!-- /.container -->
+</div><!-- /.layout-content -->
+</div><!-- /.layout-wrapper -->
+
+<img src="/static/sigle_A_rouge_HD.png" alt="" class="ai-watermark" aria-hidden="true">
+
+<script>
+'use strict';
+
+// ── Triage (partagé via SQLite serveur) ────────────────────────────────────
+let triageMap = new Map();
+
+async function loadTriage(){
+  // Migration depuis localStorage (première fois après la mise à jour)
+  const LEGACY_KEY = 'ao_veille_triage';
+  const legacy = localStorage.getItem(LEGACY_KEY);
+  if(legacy){
+    try{
+      const obj = JSON.parse(legacy);
+      const entries = Object.entries(obj).filter(([,v])=>v);
+      if(entries.length > 0){
+        await Promise.allSettled(entries.map(([id, state]) =>
+          fetch(`/api/triage/${encodeURIComponent(id)}`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({state})
+          })
+        ));
+        console.log(`Triage migré : ${entries.length} entrées envoyées au serveur`);
+      }
+      localStorage.removeItem(LEGACY_KEY);
+    }catch(e){ console.warn('Migration triage localStorage :', e); }
+  }
+  // Charger depuis le serveur
+  try{
+    const r = await fetch('/api/triage');
+    const d = await r.json();
+    triageMap = new Map(Object.entries(d.triage || {}));
+  }catch(e){ console.warn('Impossible de charger le triage :', e); }
+}
+
+async function setTriage(id, val){
+  const current = triageMap.get(id) || null;
+  const newState = (current === val) ? null : val; // toggle off → non trié
+  if(newState) triageMap.set(id, newState);
+  else triageMap.delete(id);
+
+  // Non pertinent ou pertinent → retirer la carte immédiatement
+  if(newState === 'non-pertinent' || newState === 'pertinent'){
+    const card = document.getElementById(`card-${CSS.escape(id)}`);
+    if(card){
+      card.style.transition = 'opacity .2s ease, max-height .3s ease, margin .3s ease';
+      card.style.overflow = 'hidden';
+      card.style.opacity = '0';
+      card.style.maxHeight = card.offsetHeight + 'px';
+      requestAnimationFrame(()=>{ card.style.maxHeight = '0'; card.style.marginBottom = '0'; });
+      setTimeout(()=>{
+        card.remove();
+        // Mettre à jour le compteur
+        const remaining = document.querySelectorAll('.ao-card').length;
+        const chip = document.getElementById('count-chip');
+        if(chip) chip.textContent = remaining;
+      }, 320);
+    }
+  } else {
+    applyTriageClass(id, triageMap.get(id)||null);
+    updateTriageBtns(id, triageMap.get(id)||null);
+  }
+
+  // Synchronisation serveur
+  try{
+    await fetch(`/api/triage/${encodeURIComponent(id)}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({state: newState})
+    });
+  }catch(e){ console.warn('Triage non sauvegardé :', e); }
+}
+
+function applyTriageClass(id, state){
+  const card = document.getElementById(`card-${CSS.escape(id)}`);
+  if(!card) return;
+  card.classList.remove('triage-pertinent','triage-pre-tri','triage-non-pertinent');
+  if(state) card.classList.add(`triage-${state}`);
+}
+function updateTriageBtns(id, state){
+  const btns = document.querySelectorAll(`[data-triage-id="${CSS.escape(id)}"]`);
+  btns.forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.triageVal === state);
+  });
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const MONTHS=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function fmtDate(iso){
+  if(!iso) return '—';
+  const p=iso.split('-');
+  if(p.length<3) return iso;
+  return `${parseInt(p[2])} ${MONTHS[parseInt(p[1])-1]||'?'} ${p[0]}`;
+}
+function badgeClass(b){
+  const m={'Banque Mondiale':'badge-bm','PNUD':'badge-pnud','GIZ':'badge-giz','BERD':'badge-berd','AFD':'badge-afd'};
+  return m[b]||'badge-unknown';
+}
+function dotClass(p){
+  if(p==='Haute') return 'dot-haute';
+  if(p==='Moyenne') return 'dot-moyenne';
+  return 'dot-averifier';
+}
+function isUrgent(iso){
+  if(!iso) return false;
+  const diff=(new Date(iso)-new Date())/(1000*60*60*24);
+  return diff>=0&&diff<=7;
+}
+function deadlineStyle(iso){
+  return isUrgent(iso)
+    ? 'style="color:#b91c1c;font-weight:700"'
+    : '';
+}
+
+// ── Render card shell ──────────────────────────────────────────────────────
+function renderCardShell(n, triage){
+  const state = triage.get(n.id)||null;
+  const trClass = state ? ` triage-${state}` : '';
+  const bailleurShort = n.bailleur==='Banque Mondiale'?'BM':n.bailleur;
+  const bc = badgeClass(n.bailleur);
+  const dc = dotClass(n.pertinence);
+
+  // Meta rows for left column
+  const metaRows = [
+    n.pays           ? `<div class="meta-row">🌍 ${esc(n.pays)}</div>` : '',
+    n.date_limite    ? `<div class="meta-row${isUrgent(n.date_limite)?' urgent':''}">⏰ ${fmtDate(n.date_limite)}</div>` : '',
+    n.type_avis      ? `<div class="meta-row">📁 ${esc(n.type_avis)}</div>` : '',
+    n.mode_selection ? `<div class="meta-row">⚙️ ${esc(n.mode_selection)}</div>` : '',
+    n.langue         ? `<div class="meta-row">💬 ${esc(n.langue)}</div>` : '',
+    n.secteur && n.secteur !== 'Autre' ? `<div class="meta-row">🏛 ${esc(n.secteur)}</div>` : '',
+    n.date_publication ? `<div class="meta-row">📅 Pub. ${fmtDate(n.date_publication)}</div>` : '',
+  ].filter(Boolean).join('');
+
+  return `
+<div class="ao-card${trClass}" id="card-${esc(n.id)}"
+     data-id="${esc(n.id)}"
+     data-bailleur="${esc(n.bailleur||'')}"
+     data-pertinence="${esc(n.pertinence||'')}"
+     data-deadline="${esc(n.date_limite||'')}"
+     data-search="${esc((n.titre||'')+' '+(n.projet||'')+' '+(n.pays||'')).toLowerCase()}">
+  <div class="card-strip">
+    <div class="card-strip-left">
+      <div class="card-badge-col">
+        <span class="badge ${bc}">${esc(bailleurShort)}</span>
+        <span class="dot ${dc}" title="${esc(n.pertinence)}"></span>
+      </div>
+      <div class="card-title-block">
+        <div class="card-title">${esc(n.titre)}</div>
+        ${n.projet && n.projet !== n.titre ? `<div style="font-size:.78rem;color:var(--ai-noir70)">${esc(n.projet)}</div>` : ''}
+      </div>
+    </div>
+    <div class="card-strip-right">
+      <div class="triage-btns">
+        <button class="triage-btn${state==='non-pertinent'?' active':''}"
+          data-triage-id="${esc(n.id)}" data-triage-val="non-pertinent"
+          onclick="setTriage('${esc(n.id)}','non-pertinent')" title="Non pertinent">🗑️</button>
+        <button class="triage-btn${state==='pre-tri'?' active':''}"
+          data-triage-id="${esc(n.id)}" data-triage-val="pre-tri"
+          onclick="setTriage('${esc(n.id)}','pre-tri')" title="Pré-Tri">🔄</button>
+        <button class="triage-btn${state==='pertinent'?' active':''}"
+          data-triage-id="${esc(n.id)}" data-triage-val="pertinent"
+          onclick="setTriage('${esc(n.id)}','pertinent')" title="Pertinent">⭐</button>
+      </div>
+      ${n.lien ? `<a href="${esc(n.lien)}" target="_blank" rel="noopener" class="btn-link">Voir l'avis ↗</a>` : ''}
+    </div>
+  </div>
+  <div class="card-main">
+    <div class="card-col-left">${metaRows}</div>
+    <div class="card-col-right" id="body-${esc(n.id)}">
+      <div class="loading-state"><div class="spinner-sm"></div>Chargement…</div>
+    </div>
+  </div>
+  <div class="card-criteria" id="criteria-${esc(n.id)}" style="display:none"></div>
+</div>`;
+}
+
+// ── Render enriched detail ─────────────────────────────────────────────────
+function renderDetail(noticeId, d, bailleur){
+  const body = document.getElementById(`body-${noticeId}`);
+  if(!body) return;
+
+  // Cas : fetch précédemment échoué, mis en cache comme indisponible
+  if(d._failed){
+    body.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'detail-cache-badge';
+    wrap.style.cssText = 'border:none;margin:0;padding:0;gap:.4rem';
+    const ico = document.createTextNode('⚠️ Source inaccessible · ');
+    const btn = document.createElement('button');
+    btn.className = 'cache-refresh-btn';
+    btn.textContent = '🔄 Réessayer';
+    btn.addEventListener('click', () => fetchDetail(noticeId, true));
+    wrap.appendChild(ico);
+    wrap.appendChild(btn);
+    if(d._fetched_at){
+      const ts = document.createElement('span');
+      ts.style.cssText = 'font-size:.68rem;color:var(--ai-noir70)';
+      ts.textContent = ` (dernier essai : ${d._fetched_at.slice(0,16).replace('T',' ')})`;
+      wrap.appendChild(ts);
+    }
+    body.appendChild(wrap);
+    return;
+  }
+
+  const parts = [];
+
+  // ── Description / Mission ────────────────────────────────────────────
+  const descText = d.description || d.description_section || d.full_text || '';
+  if(descText){
+    parts.push(`<div class="mission-hd">📝 Mission</div><div class="detail-text">${esc(descText)}</div>`);
+  }
+
+  // ── Documents ────────────────────────────────────────────────────────
+  if(d.documents && d.documents.length){
+    const docLinks = d.documents.map(doc=>
+      `<a href="${esc(doc.url)}" target="_blank" rel="noopener" class="doc-link">📄 ${esc(doc.name)}</a>`
+    ).join('');
+    parts.push(`<div class="mission-hd" style="margin-top:.65rem">📄 Documents</div><div class="docs-list">${docLinks}</div>`);
+  }
+
+  // ── Note bailleur (GIZ, etc.) ────────────────────────────────────────
+  if(d.note){
+    parts.push(`<div class="detail-note">ℹ️ ${esc(d.note)}</div>`);
+  }
+
+  if(!parts.length){
+    body.innerHTML = `<div class="error-state">⚠️ Aucune donnée supplémentaire disponible depuis ce bailleur.</div>`;
+  } else {
+    body.innerHTML = parts.join('');
+  }
+
+  // ── Critères de sélection (pleine largeur, en bas) ───────────────────
+  const crit = document.getElementById(`criteria-${noticeId}`);
+  if(crit && d.criteria_section){
+    crit.innerHTML = `<div class="detail-section-title">✅ Critères de sélection</div><div class="detail-text">${esc(d.criteria_section)}</div>`;
+    crit.style.display = '';
+  }
+
+  // ── Badge cache ───────────────────────────────────────────────────────
+  if(d._cached && body){
+    const ts = d._fetched_at ? d._fetched_at.slice(0,16).replace('T',' ') : '';
+    const badge = document.createElement('div');
+    badge.className = 'detail-cache-badge';
+    badge.textContent = `📁 En cache${ts ? ' · ' + ts : ''}`;
+    const sep = document.createTextNode(' · ');
+    const btn = document.createElement('button');
+    btn.className = 'cache-refresh-btn';
+    btn.textContent = '🔄 Actualiser';
+    btn.addEventListener('click', () => fetchDetail(noticeId, true));
+    badge.appendChild(sep);
+    badge.appendChild(btn);
+    body.appendChild(badge);
+  }
+}
+
+// ── Fetch detail async ────────────────────────────────────────────────────
+async function fetchDetail(noticeId, force=false){
+  const body = document.getElementById(`body-${noticeId}`);
+  if(force && body){
+    body.innerHTML = `<div class="loading-state"><div class="spinner-sm"></div>Mise à jour…</div>`;
+    const crit = document.getElementById(`criteria-${noticeId}`);
+    if(crit){ crit.innerHTML=''; crit.style.display='none'; }
+  }
+  try{
+    const url = `/api/ao-detail/${encodeURIComponent(noticeId)}${force?'?force=true':''}`;
+    const r = await fetch(url);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    if(d.error){
+      if(body) body.innerHTML = `<div class="error-state">⚠️ ${esc(d.error)}</div>`;
+      return;
+    }
+    renderDetail(noticeId, d, d.bailleur);
+  }catch(e){
+    if(body) body.innerHTML = `<div class="error-state">⚠️ Erreur : ${esc(String(e))}</div>`;
+  }
+}
+
+// ── Mobile navigation ─────────────────────────────────────────────────────
+function toggleSidebar(){ document.body.classList.toggle('sidebar-open') }
+
+// ── Filter drawer ──────────────────────────────────────────────────────────
+function toggleFilterDrawer(){
+  document.getElementById('filter-drawer').classList.toggle('open');
+  document.getElementById('filter-drawer-overlay').classList.toggle('open');
+}
+function closeFilterDrawer(){
+  document.getElementById('filter-drawer').classList.remove('open');
+  document.getElementById('filter-drawer-overlay').classList.remove('open');
+}
+
+function applyCardFilters(){
+  const bailleurs  = [...document.querySelectorAll('.fd-bailleur:checked')].map(c=>c.value);
+  const pertinences= [...document.querySelectorAll('.fd-pertinence:checked')].map(c=>c.value);
+  const deadlineFrom = document.getElementById('fd-deadline-from')?.value || '';
+  const search     = (document.getElementById('fd-search')?.value || '').trim().toLowerCase();
+
+  let visible = 0;
+  document.querySelectorAll('.ao-card').forEach(card => {
+    const b = card.dataset.bailleur || '';
+    const p = card.dataset.pertinence || '';
+    const d = card.dataset.deadline || '';
+    const s = card.dataset.search || '';
+
+    const okB = !bailleurs.length  || bailleurs.includes(b);
+    const okP = !pertinences.length|| pertinences.includes(p);
+    const okD = !deadlineFrom      || d >= deadlineFrom;
+    const okS = !search            || s.includes(search);
+
+    const show = okB && okP && okD && okS;
+    card.style.display = show ? '' : 'none';
+    if(show) visible++;
+  });
+
+  const chip = document.getElementById('count-chip');
+  if(chip) chip.textContent = visible;
+  updateFilterBadge();
+}
+
+function updateFilterBadge(){
+  const bailleurs  = [...document.querySelectorAll('.fd-bailleur:checked')].length;
+  const totalB     = document.querySelectorAll('.fd-bailleur').length;
+  const pertinences= [...document.querySelectorAll('.fd-pertinence:checked')].length;
+  const totalP     = document.querySelectorAll('.fd-pertinence').length;
+  const hasDeadline= !!document.getElementById('fd-deadline-from')?.value;
+  const hasSearch  = !!(document.getElementById('fd-search')?.value || '').trim();
+
+  let active = 0;
+  if(bailleurs < totalB)   active++;
+  if(pertinences < totalP) active++;
+  if(hasDeadline)          active++;
+  if(hasSearch)            active++;
+
+  const badge = document.getElementById('active-filter-badge');
+  if(badge){
+    badge.textContent = active;
+    badge.style.display = active > 0 ? '' : 'none';
+  }
+}
+
+function resetCardFilters(){
+  document.querySelectorAll('.fd-bailleur, .fd-pertinence').forEach(c => c.checked = true);
+  const dd = document.getElementById('fd-deadline-from'); if(dd) dd.value = '';
+  const sr = document.getElementById('fd-search');        if(sr) sr.value = '';
+  applyCardFilters();
+}
+
+// Listen to filter changes for live update (without closing drawer)
+document.addEventListener('DOMContentLoaded', ()=>{
+  document.querySelectorAll('.fd-bailleur, .fd-pertinence').forEach(c =>
+    c.addEventListener('change', applyCardFilters)
+  );
+  const dd = document.getElementById('fd-deadline-from');
+  const sr = document.getElementById('fd-search');
+  if(dd) dd.addEventListener('input', applyCardFilters);
+  if(sr) sr.addEventListener('input', applyCardFilters);
+});
+
+// ── Triage bar (IntersectionObserver) ─────────────────────────────────────
+let _focusedCardId = null;
+let _triageObserver = null;
+
+function setupTriageBar(){
+  const cards = document.querySelectorAll('.ao-card');
+  if(!cards.length) return;
+
+  _triageObserver = new IntersectionObserver(entries => {
+    let best = null, bestRatio = -1;
+    entries.forEach(e => {
+      if(e.intersectionRatio > bestRatio){
+        bestRatio = e.intersectionRatio;
+        best = e.target;
+      }
+    });
+    if(best && bestRatio > 0.05){
+      _focusedCardId = best.dataset.id;
+      const title = best.querySelector('.card-title')?.textContent || '';
+      const el = document.getElementById('triage-bar-title');
+      if(el) el.textContent = title.length > 55 ? title.slice(0,55)+'…' : title;
+      updateTriageBarState();
+    }
+  }, { threshold:[0.05, 0.25, 0.5, 0.75, 1.0] });
+
+  cards.forEach(card => _triageObserver.observe(card));
+}
+
+function updateTriageBarState(){
+  if(!_focusedCardId) return;
+  const state = triageMap.get(_focusedCardId) || null;
+  const map = { 'non-pertinent':'active-npert', 'pre-tri':'active-pretri', 'pertinent':'active-pert' };
+  document.querySelectorAll('.triage-bar-btn').forEach(btn => {
+    // Remove all active classes
+    btn.classList.remove('active-npert','active-pretri','active-pert');
+    if(btn.dataset.val === state) btn.classList.add(map[state]);
+  });
+}
+
+function triageBarAction(val){
+  if(!_focusedCardId) return;
+  setTriage(_focusedCardId, val);
+  // Refresh bar state after a short delay (setTriage may remove the card)
+  setTimeout(updateTriageBarState, 50);
+}
+
+// ── Identité utilisateur + badge notifications ─────────────────────────────
+const USER_KEY = 'ao_veille_current_user';
+let teamMembers = [];
+
+async function loadTeam(){
+  try{
+    const r = await fetch('/api/team');
+    const d = await r.json();
+    teamMembers = d.members || [];
+    const sel = document.getElementById('current-user-select');
+    if(!sel) return;
+    const current = localStorage.getItem(USER_KEY) || '';
+    sel.innerHTML = '<option value="">— Choisir —</option>' +
+      teamMembers.map(m =>
+        `<option value="${esc(m.name)}"${m.name===current?' selected':''}>${esc(m.name)}</option>`
+      ).join('');
+    if(current) updateAssignBadge(current);
+  }catch(e){ console.warn('loadTeam:', e); }
+}
+
+function onUserChange(val){
+  if(val) localStorage.setItem(USER_KEY, val);
+  else localStorage.removeItem(USER_KEY);
+  updateAssignBadge(val);
+}
+
+async function updateAssignBadge(user){
+  const badge  = document.getElementById('assign-badge');
+  const mBadge = document.getElementById('mobile-badge');
+  const hide = ()=>{ if(badge) badge.style.display='none'; if(mBadge) mBadge.style.display='none'; };
+  if(!user){ hide(); return; }
+  try{
+    const r = await fetch(`/api/assignments/user/${encodeURIComponent(user)}`);
+    const d = await r.json();
+    const unread = d.unread || 0;
+    if(unread > 0){
+      if(badge){ badge.textContent=unread; badge.style.display=''; }
+      if(mBadge){ mBadge.textContent=unread; mBadge.style.display=''; }
+    } else { hide(); }
+  }catch(e){ hide(); }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────
+async function init(){
+  await Promise.all([loadTriage(), loadTeam()]);
+  const triage = triageMap;
+
+  // Filtrer les IDs pré-tri
+  const pretriIds = new Set(
+    [...triage.entries()].filter(([,v])=>v==='pre-tri').map(([k])=>k)
+  );
+
+  if(pretriIds.size === 0){
+    document.getElementById('count-chip').textContent = '0';
+    document.getElementById('cards-container').innerHTML = `
+      <div class="empty-page">
+        <span class="icon">🔄</span>
+        Aucun AO en pré-tri pour le moment.<br>
+        Retourne sur la <a href="/">page Veille</a> et clique sur 🔄 pour marquer des AO à analyser.
+      </div>`;
+    return;
+  }
+
+  // Charger tous les AO depuis l'API
+  let allNotices = [];
+  try{
+    const r = await fetch('/api/notices');
+    const d = await r.json();
+    allNotices = d.notices || [];
+  }catch(e){
+    document.getElementById('cards-container').innerHTML =
+      `<div class="empty-page"><span class="icon">⚠️</span>Erreur de chargement : ${esc(String(e))}</div>`;
+    return;
+  }
+
+  // Garder uniquement les pré-tri
+  const notices = allNotices.filter(n => pretriIds.has(n.id));
+
+  // Trier par deadline croissante
+  notices.sort((a,b)=>{
+    const av=a.date_limite||'9999', bv=b.date_limite||'9999';
+    return av<bv?-1:av>bv?1:0;
+  });
+
+  document.getElementById('count-chip').textContent = notices.length;
+
+  if(!notices.length){
+    document.getElementById('cards-container').innerHTML = `
+      <div class="empty-page">
+        <span class="icon">🔎</span>
+        Les AO en pré-tri ne sont plus actifs ou n'ont pas encore été collectés.<br>
+        <a href="/">Retour à la veille</a>
+      </div>`;
+    return;
+  }
+
+  // Rendre les shells de cartes
+  document.getElementById('cards-container').innerHTML =
+    notices.map(n => renderCardShell(n, triage)).join('');
+
+  // Charger les détails en parallèle (par lots de 3 pour ne pas surcharger)
+  const BATCH = 3;
+  for(let i=0; i<notices.length; i+=BATCH){
+    const batch = notices.slice(i, i+BATCH);
+    await Promise.allSettled(batch.map(n => fetchDetail(n.id)));
+    if(i+BATCH < notices.length) await new Promise(r=>setTimeout(r,300));
+  }
+
+  // Triage bar — observe les cartes après rendu complet
+  setupTriageBar();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  init();
+  // Rafraîchir le badge toutes les 2 min
+  setInterval(()=>{
+    const user = localStorage.getItem(USER_KEY);
+    if(user) updateAssignBadge(user);
+  }, 2*60*1000);
+});
+</script>
+</body>
+</html>

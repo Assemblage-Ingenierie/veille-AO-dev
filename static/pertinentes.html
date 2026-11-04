@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offres pertinentes — Assemblage ingénierie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ai-rouge:       #E30513;
+  --ai-violet:      #30323E;
+  --ai-gris:        #DFE4E8;
+  --ai-rouge-clair: #F9E1E3;
+  --ai-gris-clair:  #F2F2F2;
+  --ai-noir70:      #4D4D4D;
+  --surface:        #FFFFFF;
+  --border:         #DFE4E8;
+  --radius:         4px;
+  --shadow:         0 1px 4px rgba(0,0,0,.09);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-clair);
+  color:#000;font-size:13.5px;line-height:1.5}
+
+/* ── Sidebar ── */
+.layout-wrapper{display:flex;min-height:100vh}
+.sidebar{width:175px;flex-shrink:0;background:var(--ai-gris);
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  display:flex;flex-direction:column;border-right:1px solid #CDD2D6}
+.sidebar-brand{padding:1rem 1rem .85rem;border-bottom:1px solid #CDD2D6;
+  display:flex;flex-direction:column;gap:.45rem}
+.sidebar-brand img{width:100%;height:auto;max-width:130px}
+.sidebar-brand-sub{font-size:.68rem;color:var(--ai-noir70);line-height:1.35}
+.sidebar-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ai-noir70);padding:.85rem 1rem .25rem}
+.sidebar-nav{display:flex;align-items:center;
+  padding:.6rem 1rem;font-size:.82rem;font-weight:600;
+  color:var(--ai-violet);text-decoration:none;
+  transition:background .12s;border-left:3px solid transparent;line-height:1.2}
+.sidebar-nav:hover{background:rgba(48,50,62,.1)}
+.sidebar-nav.active{color:var(--ai-rouge);border-left-color:var(--ai-rouge);
+  background:rgba(227,5,19,.06)}
+.sidebar-badge{margin-left:auto;background:var(--ai-rouge);color:#fff;
+  border-radius:10px;font-size:.63rem;font-weight:700;min-width:16px;height:16px;
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0 4px;flex-shrink:0}
+.sidebar-spacer{flex:1}
+.sidebar-user{padding:.7rem 1rem;border-top:1px solid #CDD2D6}
+.sidebar-user-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ai-noir70);margin-bottom:.35rem}
+.user-select{width:100%;padding:.3rem .5rem;border:1px solid #CDD2D6;
+  border-radius:3px;font-size:.76rem;font-family:inherit;
+  background:#fff;color:var(--ai-violet);cursor:pointer}
+.layout-content{flex:1;min-width:0}
+
+/* ── Layout ── */
+.container{max-width:1100px;margin:0 auto;padding:1.2rem 1rem}
+
+/* ── Page title ── */
+.page-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.page-title h2{font-size:1.05rem;font-weight:700;color:var(--ai-violet)}
+.page-title p{font-size:.8rem;color:var(--ai-noir70);margin-top:.15rem}
+.count-chip{background:var(--ai-violet);color:#fff;padding:.2rem .6rem;
+  border-radius:3px;font-size:.78rem;font-weight:700}
+
+/* ── Notification banner ── */
+.assign-banner{background:var(--ai-rouge-clair);border:1px solid var(--ai-rouge);
+  border-radius:var(--radius);padding:.65rem 1rem;margin-bottom:1rem;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  font-size:.82rem;font-weight:600;color:var(--ai-violet)}
+.assign-banner-close{background:none;border:none;cursor:pointer;font-size:1rem;
+  color:var(--ai-violet);padding:0;line-height:1;flex-shrink:0;font-family:inherit}
+
+/* ── AO Card ── */
+.ao-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  margin-bottom:1rem;overflow:hidden;transition:box-shadow .15s}
+.ao-card:hover{box-shadow:0 3px 10px rgba(0,0,0,.12)}
+.card-strip{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:1rem;padding:.85rem 1rem .7rem;
+  border-bottom:1px solid var(--border);background:var(--ai-gris-clair)}
+.card-strip-left{display:flex;align-items:flex-start;gap:.7rem;flex:1;min-width:0}
+.card-strip-right{display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+.card-badge-col{display:flex;flex-direction:column;align-items:center;gap:.35rem;flex-shrink:0}
+.badge{display:inline-block;padding:.15rem .45rem;border-radius:2px;
+  font-size:.73rem;font-weight:700;white-space:nowrap}
+.badge-bm   {background:var(--ai-gris);color:var(--ai-violet)}
+.badge-pnud {background:#1a5276;color:#fff}
+.badge-giz  {background:#005a8c;color:#fff}
+.badge-berd {background:#004b87;color:#fff}
+.badge-afd  {background:#e8891c;color:#fff}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-haute  {background:var(--ai-rouge)}
+.dot-moyenne{background:#f59e0b}
+.dot-verifier{background:#94a3b8}
+.card-title{font-size:.88rem;font-weight:700;color:var(--ai-violet);
+  word-break:break-word;line-height:1.35}
+.btn-link{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .7rem;
+  border:1px solid var(--border);border-radius:3px;font-size:.78rem;
+  color:var(--ai-violet);text-decoration:none;font-weight:600;
+  transition:all .12s;white-space:nowrap;font-family:inherit}
+.btn-link:hover{background:var(--ai-gris);border-color:var(--ai-violet)}
+
+/* ── Card body 2-col ── */
+.card-main{display:grid;grid-template-columns:180px 1fr}
+@media(max-width:700px){.card-main{grid-template-columns:1fr}}
+.card-col-left{padding:.8rem 1rem;border-right:1px solid var(--border);
+  background:var(--ai-gris-clair);display:flex;flex-direction:column;gap:.25rem}
+.card-col-right{padding:.8rem 1rem}
+.meta-row{font-size:.78rem;color:var(--ai-noir70)}
+.meta-row.urgent{color:#b91c1c;font-weight:700}
+.mission-hd{font-size:.72rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--ai-rouge);margin-bottom:.35rem}
+.detail-text{font-size:.82rem;white-space:pre-wrap;word-break:break-word;
+  max-height:240px;overflow-y:auto;line-height:1.55}
+.doc-link{display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;
+  color:var(--ai-violet);text-decoration:none;margin-right:.5rem}
+.doc-link:hover{text-decoration:underline}
+.detail-note{font-size:.78rem;color:var(--ai-noir70);font-style:italic;margin-top:.4rem}
+.loading-state{display:flex;align-items:center;gap:.5rem;color:var(--ai-noir70);font-size:.8rem}
+.error-state{font-size:.8rem;color:var(--ai-rouge)}
+.spinner-sm{width:12px;height:12px;border:2px solid rgba(48,50,62,.2);
+  border-top-color:var(--ai-violet);border-radius:50%;
+  animation:spin .7s linear infinite;flex-shrink:0}
+/* Cache badge */
+.detail-cache-badge{display:flex;align-items:center;gap:.35rem;
+  font-size:.7rem;color:var(--ai-noir70);
+  margin-top:.55rem;padding-top:.4rem;border-top:1px solid var(--ai-gris)}
+.cache-refresh-btn{background:none;border:none;cursor:pointer;
+  font-size:.7rem;color:var(--ai-rouge);padding:0;font-family:inherit;line-height:1}
+.cache-refresh-btn:hover{text-decoration:underline}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Card assign section ── */
+.card-assign{padding:.65rem 1rem;border-top:1px solid var(--border);
+  background:var(--ai-gris-clair);display:flex;align-items:center;
+  flex-wrap:wrap;gap:.5rem;min-height:40px}
+.assign-label{font-size:.72rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--ai-violet);flex-shrink:0;white-space:nowrap}
+.assign-chips{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center;flex:1;min-width:0}
+.assign-chip{display:inline-flex;align-items:center;gap:.28rem;padding:.18rem .5rem;
+  background:var(--ai-violet);color:#fff;border-radius:3px;font-size:.75rem;font-weight:600}
+.assign-chip small{font-weight:400;opacity:.75;font-size:.68rem}
+.assign-chip-remove{background:none;border:none;color:rgba(255,255,255,.7);
+  cursor:pointer;font-size:.82rem;line-height:1;padding:0 1px;font-family:inherit}
+.assign-chip-remove:hover{color:#fff}
+.assign-select{padding:.28rem .5rem;border:1px solid var(--border);
+  border-radius:3px;font-size:.78rem;font-family:inherit;color:var(--ai-violet);
+  background:#fff;cursor:pointer;flex-shrink:0}
+.assign-btn{padding:.28rem .65rem;background:var(--ai-violet);border:none;
+  color:#fff;border-radius:3px;cursor:pointer;font-size:.78rem;font-weight:600;
+  font-family:inherit;transition:background .12s;white-space:nowrap;flex-shrink:0}
+.assign-btn:hover{background:#1e2028}
+
+.empty-page{text-align:center;padding:3rem 1rem;color:var(--ai-noir70)}
+.empty-page .icon{display:block;font-size:2.5rem;margin-bottom:.75rem}
+.empty-page a{color:var(--ai-rouge)}
+.ai-watermark{position:fixed;bottom:16px;right:16px;width:48px;
+  opacity:.15;pointer-events:none;z-index:0}
+
+/* ── Mobile ── */
+.mobile-header{display:none;align-items:center;height:48px;
+  background:var(--ai-gris);border-bottom:1px solid #CDD2D6;
+  padding:0 .75rem;position:fixed;top:0;left:0;right:0;z-index:190;gap:.5rem}
+.mobile-header-title{flex:1;text-align:center;font-size:.84rem;font-weight:700;
+  color:var(--ai-violet);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hamburger{background:none;border:none;cursor:pointer;font-size:1.3rem;
+  line-height:1;padding:6px 8px;color:var(--ai-violet);font-family:inherit;flex-shrink:0}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199}
+@media(max-width:768px){
+  .mobile-header{display:flex}
+  .layout-wrapper{display:block;padding-top:48px}
+  .sidebar{position:fixed;top:0;left:0;height:100vh;
+    transform:translateX(-100%);transition:transform .25s ease;z-index:200;overflow-y:auto}
+  body.sidebar-open .sidebar{transform:translateX(0)}
+  body.sidebar-open .sidebar-overlay{display:block}
+  .container{padding:.7rem .75rem}
+  .card-assign{flex-direction:column;align-items:flex-start}
+  .assign-select,.assign-btn{width:100%}
+}
+@media(max-width:480px){
+  .card-main{grid-template-columns:1fr}
+  .card-col-left{border-right:none;border-bottom:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+<header class="mobile-header">
+  <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
+  <span class="mobile-header-title">Offres pertinentes</span>
+  <span style="width:40px"></span>
+</header>
+
+<div class="layout-wrapper">
+
+<nav class="sidebar">
+  <div class="sidebar-brand">
+    <img src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
+    <span class="sidebar-brand-sub">Plateforme de veille - AO DEV</span>
+  </div>
+  <span class="sidebar-label">Navigation</span>
+  <a class="sidebar-nav" href="/">Veille</a>
+  <a class="sidebar-nav" href="/analyse">Analyse AO</a>
+  <a class="sidebar-nav active" href="/pertinentes" style="justify-content:space-between">
+    Offres pertinentes
+    <span class="sidebar-badge" id="assign-badge" style="display:none">0</span>
+  </a>
+  <a class="sidebar-nav" href="/params">Paramètres</a>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-user">
+    <div class="sidebar-user-label">Je suis</div>
+    <select class="user-select" id="current-user-select" onchange="onUserChange(this.value)">
+      <option value="">— Choisir —</option>
+    </select>
+  </div>
+</nav>
+
+<div class="layout-content">
+<div class="container">
+
+  <div class="page-title">
+    <div>
+      <h2>Offres pertinentes</h2>
+      <p>Offres marquées ⭐ — à approfondir ou à transmettre</p>
+    </div>
+    <span class="count-chip" id="count-chip">—</span>
+  </div>
+
+  <div class="assign-banner" id="assign-banner" style="display:none">
+    <span id="assign-banner-text"></span>
+    <button class="assign-banner-close" onclick="document.getElementById('assign-banner').style.display='none'">✕</button>
+  </div>
+
+  <div id="cards-container">
+    <div class="empty-page"><span class="icon">⏳</span>Chargement…</div>
+  </div>
+
+</div><!-- /.container -->
+</div><!-- /.layout-content -->
+</div><!-- /.layout-wrapper -->
+
+<img src="/static/sigle_A_rouge_HD.png" alt="" class="ai-watermark" aria-hidden="true">
+
+<script>
+'use strict';
+
+function toggleSidebar(){ document.body.classList.toggle('sidebar-open') }
+
+// ── Triage ──────────────────────────────────────────────────────────────────
+let triageMap = new Map();
+async function loadTriage(){
+  try{
+    const r = await fetch('/api/triage');
+    const d = await r.json();
+    triageMap = new Map(Object.entries(d.triage || {}));
+  }catch(e){ console.warn('Triage:', e); }
+}
+
+// ── Équipe & Assignations ────────────────────────────────────────────────────
+let teamMembers = [];
+let allAssignments = {};
+const USER_KEY = 'ao_veille_current_user';
+let currentUser = localStorage.getItem(USER_KEY) || '';
+
+async function loadTeam(){
+  try{
+    const r = await fetch('/api/team');
+    const d = await r.json();
+    teamMembers = d.members || [];
+    const sel = document.getElementById('current-user-select');
+    teamMembers.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.name; opt.textContent = m.name;
+      if(m.name === currentUser) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }catch(e){}
+}
+
+async function loadAssignments(){
+  try{
+    const r = await fetch('/api/assignments');
+    const d = await r.json();
+    allAssignments = d.assignments || {};
+  }catch(e){}
+}
+
+function onUserChange(val){
+  currentUser = val;
+  localStorage.setItem(USER_KEY, val);
+  updateAssignBadge();
+}
+
+async function updateAssignBadge(){
+  const badge = document.getElementById('assign-badge');
+  if(!currentUser || !badge){ if(badge) badge.style.display='none'; return; }
+  try{
+    const r = await fetch(`/api/assignments/user/${encodeURIComponent(currentUser)}`);
+    const d = await r.json();
+    if(d.unread > 0){ badge.textContent=d.unread; badge.style.display='inline-flex'; }
+    else badge.style.display='none';
+  }catch(e){}
+}
+
+// ── Utils ────────────────────────────────────────────────────────────────────
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function fmtDate(s){ if(!s) return ''; try{ return new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}); }catch{ return s; } }
+function isUrgent(s){ if(!s) return false; const d=(new Date(s)-new Date())/(1000*86400); return d>=0&&d<=7; }
+function badgeClass(b){ return b==='Banque Mondiale'?'badge-bm':b==='PNUD'?'badge-pnud':b==='GIZ'?'badge-giz':b==='BERD'?'badge-berd':b==='AFD'?'badge-afd':''; }
+function dotClass(p){ return p==='Haute'?'dot-haute':p==='Moyenne'?'dot-moyenne':'dot-verifier'; }
+
+// ── Section assignation ───────────────────────────────────────────────────────
+function renderAssignSection(noticeId){
+  const assigned = allAssignments[noticeId] || [];
+  const chips = assigned.map(a =>
+    `<span class="assign-chip">
+      ${esc(a.assignee)}
+      ${a.assigned_by ? `<small>par ${esc(a.assigned_by)}</small>` : ''}
+      <button class="assign-chip-remove" onclick="removeAssign('${esc(noticeId)}','${esc(a.assignee)}')" title="Retirer">✕</button>
+    </span>`
+  ).join('');
+  const available = teamMembers.filter(m => !assigned.some(a => a.assignee === m.name));
+  const opts = available.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
+  const form = opts ? `
+    <select class="assign-select" id="asel-${esc(noticeId)}">
+      <option value="">Assigner à…</option>${opts}
+    </select>
+    <button class="assign-btn" onclick="doAssign('${esc(noticeId)}')">Notifier</button>` : '';
+  return `<div class="card-assign" id="asec-${esc(noticeId)}">
+    <span class="assign-label">👤</span>
+    <div class="assign-chips">${chips || '<span style="font-size:.78rem;color:var(--ai-noir70)">Aucune assignation</span>'}</div>
+    ${form}
+  </div>`;
+}
+
+async function doAssign(noticeId){
+  const sel = document.getElementById(`asel-${noticeId}`);
+  if(!sel || !sel.value) return;
+  const assignee = sel.value;
+  try{
+    await fetch(`/api/assignments/${encodeURIComponent(noticeId)}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({assignee, assigned_by: currentUser || null})
+    });
+    if(!allAssignments[noticeId]) allAssignments[noticeId] = [];
+    allAssignments[noticeId].push({assignee, assigned_by: currentUser||null, assigned_at: new Date().toISOString()});
+    const sec = document.getElementById(`asec-${noticeId}`);
+    if(sec) sec.outerHTML = renderAssignSection(noticeId);
+  }catch(e){ console.warn('Assign:', e); }
+}
+
+async function removeAssign(noticeId, assignee){
+  try{
+    await fetch(`/api/assignments/${encodeURIComponent(noticeId)}`, {
+      method:'DELETE', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({assignee})
+    });
+    if(allAssignments[noticeId])
+      allAssignments[noticeId] = allAssignments[noticeId].filter(a => a.assignee !== assignee);
+    const sec = document.getElementById(`asec-${noticeId}`);
+    if(sec) sec.outerHTML = renderAssignSection(noticeId);
+  }catch(e){ console.warn('Remove assign:', e); }
+}
+
+// ── Rendu des cartes ──────────────────────────────────────────────────────────
+function renderCard(n){
+  const bailleurShort = n.bailleur==='Banque Mondiale'?'BM':n.bailleur;
+  const metaRows = [
+    n.pays        ? `<div class="meta-row">🌍 ${esc(n.pays)}</div>` : '',
+    n.date_limite ? `<div class="meta-row${isUrgent(n.date_limite)?' urgent':''}">⏰ ${fmtDate(n.date_limite)}</div>` : '',
+    n.type_avis   ? `<div class="meta-row">📋 ${esc(n.type_avis)}</div>` : '',
+    n.mode_selection ? `<div class="meta-row">🎯 ${esc(n.mode_selection)}</div>` : '',
+    n.langue      ? `<div class="meta-row">🌐 ${esc(n.langue)}</div>` : '',
+    n.secteur     ? `<div class="meta-row">🏗 ${esc(n.secteur)}</div>` : '',
+    n.date_publication ? `<div class="meta-row">📅 ${fmtDate(n.date_publication)}</div>` : '',
+  ].filter(Boolean).join('');
+  return `
+<div class="ao-card" id="card-${esc(n.id)}">
+  <div class="card-strip">
+    <div class="card-strip-left">
+      <div class="card-badge-col">
+        <span class="badge ${badgeClass(n.bailleur)}">${esc(bailleurShort)}</span>
+        <span class="dot ${dotClass(n.pertinence)}" title="${esc(n.pertinence||'')}"></span>
+      </div>
+      <div>
+        <div class="card-title">${esc(n.titre)}</div>
+        ${n.projet && n.projet!==n.titre ? `<div style="font-size:.78rem;color:var(--ai-noir70)">${esc(n.projet)}</div>` : ''}
+      </div>
+    </div>
+    <div class="card-strip-right">
+      ${n.lien ? `<a href="${esc(n.lien)}" target="_blank" rel="noopener" class="btn-link">Voir l'avis ↗</a>` : ''}
+    </div>
+  </div>
+  <div class="card-main">
+    <div class="card-col-left">${metaRows}</div>
+    <div class="card-col-right" id="body-${esc(n.id)}">
+      <div class="loading-state"><div class="spinner-sm"></div>Chargement…</div>
+    </div>
+  </div>
+  ${renderAssignSection(n.id)}
+</div>`;
+}
+
+// ── Chargement du détail ──────────────────────────────────────────────────────
+async function fetchDetail(noticeId, force=false){
+  const body = document.getElementById(`body-${noticeId}`);
+  if(!body) return;
+  if(force){
+    body.innerHTML = `<div class="loading-state"><div class="spinner-sm"></div>Mise à jour…</div>`;
+  }
+  try{
+    const url = `/api/ao-detail/${encodeURIComponent(noticeId)}${force?'?force=true':''}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if(d.error){ body.innerHTML=`<div class="error-state">⚠️ ${esc(d.error)}</div>`; return; }
+
+    // Cas : fetch précédemment échoué, mis en cache comme indisponible
+    if(d._failed){
+      body.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'detail-cache-badge';
+      wrap.style.cssText = 'border:none;margin:0;padding:0;gap:.4rem';
+      wrap.appendChild(document.createTextNode('⚠️ Source inaccessible · '));
+      const btn = document.createElement('button');
+      btn.className = 'cache-refresh-btn';
+      btn.textContent = '🔄 Réessayer';
+      btn.addEventListener('click', () => fetchDetail(noticeId, true));
+      wrap.appendChild(btn);
+      if(d._fetched_at){
+        const ts = document.createElement('span');
+        ts.style.cssText = 'font-size:.68rem;color:var(--ai-noir70)';
+        ts.textContent = ` (dernier essai : ${d._fetched_at.slice(0,16).replace('T',' ')})`;
+        wrap.appendChild(ts);
+      }
+      body.appendChild(wrap);
+      return;
+    }
+
+    const parts = [];
+    const txt = d.description||d.description_section||d.full_text||'';
+    if(txt) parts.push(`<div class="mission-hd">📝 Mission</div><div class="detail-text">${esc(txt)}</div>`);
+    if(d.documents&&d.documents.length) parts.push(`<div class="mission-hd" style="margin-top:.65rem">📄 Documents</div><div>${
+      d.documents.map(doc=>`<a href="${esc(doc.url)}" target="_blank" class="doc-link">📄 ${esc(doc.name)}</a>`).join('')
+    }</div>`);
+    if(d.note) parts.push(`<div class="detail-note">ℹ️ ${esc(d.note)}</div>`);
+    body.innerHTML = parts.length ? parts.join('') : `<div class="error-state">Aucune donnée disponible.</div>`;
+
+    // Badge cache
+    if(d._cached){
+      const ts = d._fetched_at ? d._fetched_at.slice(0,16).replace('T',' ') : '';
+      const badge = document.createElement('div');
+      badge.className = 'detail-cache-badge';
+      badge.textContent = `📁 En cache${ts ? ' · ' + ts : ''}`;
+      const sep = document.createTextNode(' · ');
+      const btn = document.createElement('button');
+      btn.className = 'cache-refresh-btn';
+      btn.textContent = '🔄 Actualiser';
+      btn.addEventListener('click', () => fetchDetail(noticeId, true));
+      badge.appendChild(sep);
+      badge.appendChild(btn);
+      body.appendChild(badge);
+    }
+  }catch(e){ if(body) body.innerHTML=`<div class="error-state">⚠️ ${esc(String(e))}</div>`; }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init(){
+  await Promise.all([loadTriage(), loadTeam(), loadAssignments()]);
+
+  // Vérifier les nouvelles assignations pour l'utilisateur courant
+  if(currentUser){
+    try{
+      const r = await fetch(`/api/assignments/user/${encodeURIComponent(currentUser)}?mark_seen=true`);
+      const d = await r.json();
+      if(d.unread > 0){
+        const n = d.unread;
+        document.getElementById('assign-banner-text').textContent =
+          `🔔 ${n} nouvelle${n>1?'s':''} offre${n>1?'s':''} vous ${n>1?'ont':'a'} été assignée${n>1?'s':''}.`;
+        document.getElementById('assign-banner').style.display = 'flex';
+      }
+      const badge = document.getElementById('assign-badge');
+      if(badge) badge.style.display = 'none'; // marqué comme vu
+    }catch(e){}
+  } else {
+    await updateAssignBadge();
+  }
+
+  // Charger les AO pertinents
+  let allNotices = [];
+  try{
+    const r = await fetch('/api/notices');
+    const d = await r.json();
+    allNotices = d.notices || [];
+  }catch(e){
+    document.getElementById('cards-container').innerHTML =
+      `<div class="empty-page"><span class="icon">⚠️</span>Erreur : ${esc(String(e))}</div>`;
+    return;
+  }
+
+  const notices = allNotices
+    .filter(n => triageMap.get(n.id) === 'pertinent')
+    .sort((a,b)=>{ const av=a.date_limite||'9999',bv=b.date_limite||'9999'; return av<bv?-1:av>bv?1:0; });
+
+  document.getElementById('count-chip').textContent = notices.length;
+
+  if(!notices.length){
+    document.getElementById('cards-container').innerHTML = `
+      <div class="empty-page">
+        <span class="icon">⭐</span>
+        Aucune offre marquée comme pertinente.<br>
+        Marquez des offres ⭐ depuis <a href="/analyse">Analyse AO</a>.
+      </div>`;
+    return;
+  }
+
+  document.getElementById('cards-container').innerHTML = notices.map(n => renderCard(n)).join('');
+
+  const BATCH = 3;
+  for(let i=0; i<notices.length; i+=BATCH){
+    await Promise.allSettled(notices.slice(i,i+BATCH).map(n => fetchDetail(n.id)));
+    if(i+BATCH < notices.length) await new Promise(r=>setTimeout(r,300));
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

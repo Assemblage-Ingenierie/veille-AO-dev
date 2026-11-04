@@ -1,0 +1,35 @@
+# ── Base de données (régénérée au premier lancement) ──────────────────────────
+ao_database.db
+ao_database.db-journal
+ao_database.db-wal
+ao_database.db-shm
+*.db.bak
+*.db.backup
+
+# ── Secrets / config locale ───────────────────────────────────────────────────
+.env
+
+# ── Artefacts d'exécution ─────────────────────────────────────────────────────
+recovery_data.json
+server_log.txt
+*.log
+
+# ── Build / distribution (régénérable) ────────────────────────────────────────
+Veille_AO.exe
+build/
+dist/
+*.spec
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# ── OS / éditeurs ─────────────────────────────────────────────────────────────
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
