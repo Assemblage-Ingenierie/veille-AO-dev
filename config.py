@@ -24,30 +24,37 @@ def _load_dotenv(path: str = os.path.join(_ROOT, ".env")) -> None:
 
 _load_dotenv()
 
+
+def _env(name: str, default: str = "") -> str:
+    """Variable d'environnement nettoyée (espaces, retours ligne, BOM invisible
+    qu'ajoutent certains outils lors de la saisie)."""
+    return os.environ.get(name, default).strip().lstrip("﻿").strip()
+
+
 # ── Supabase (projet partagé INTERNAL, tables veilleao_*) ────────────────────
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://hhkofvbptnrtwbazftlm.supabase.co")
+SUPABASE_URL = _env("SUPABASE_URL", "https://hhkofvbptnrtwbazftlm.supabase.co")
 # Clé publique (« publishable ») : conçue pour être exposée au navigateur ; avec le
 # jeton de l'utilisateur, la sécurité de la base (RLS) s'applique.
-SUPABASE_PUBLISHABLE_KEY = os.environ.get(
+SUPABASE_PUBLISHABLE_KEY = _env(
     "SUPABASE_PUBLISHABLE_KEY", "sb_publishable_dKYZOMgAeeBsN7HTOpReOw_yeS--rED")
 # Clé secrète : contourne la RLS. Backend uniquement (collecte, cache, emails système).
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_SERVICE_ROLE_KEY = _env("SUPABASE_SERVICE_ROLE_KEY")
 
 # Secret attendu (en-tête « Authorization: Bearer … ») sur les routes /api/cron/*.
-CRON_SECRET = os.environ.get("CRON_SECRET", "")
+CRON_SECRET = _env("CRON_SECRET")
 
 # URL publique de l'application (liens dans les emails).
-APP_URL = os.environ.get("APP_URL", "http://localhost:8000").rstrip("/")
+APP_URL = _env("APP_URL", "http://localhost:8000").rstrip("/")
 
 # ── Emails (SMTP) ─────────────────────────────────────────────────────────────
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-SMTP_FROM = os.environ.get("SMTP_FROM", "") or SMTP_USER
+SMTP_HOST = _env("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(_env("SMTP_PORT", "587"))
+SMTP_USER = _env("SMTP_USER")
+SMTP_PASSWORD = _env("SMTP_PASSWORD")
+SMTP_FROM = _env("SMTP_FROM") or SMTP_USER
 # Plafond d'emails « demande d'accès » envoyés aux admins par heure ; au-delà, les
 # demandes restent en file et partent groupées au passage suivant.
-ACCESS_MAILS_PER_HOUR = int(os.environ.get("VEILLEAO_ACCESS_MAILS_PER_HOUR", "2"))
+ACCESS_MAILS_PER_HOUR = int(_env("VEILLEAO_ACCESS_MAILS_PER_HOUR", "2"))
 
 STRONG_KEYWORDS = [
     "feasibility", "feasibility study", "étude de faisabilité",
