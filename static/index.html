@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="/static/auth.js"></script>
 <style>
 :root {
   /* Palette Assemblage ingénierie */
@@ -335,15 +337,10 @@ tr.triage-non-pertinent{opacity:.55}
   </a>
   <a class="sidebar-nav" href="/params">Paramètres</a>
   <div class="sidebar-spacer"></div>
-  <div class="sidebar-user">
-    <div class="sidebar-user-label">Je suis</div>
-    <select class="user-select" id="current-user-select" onchange="onUserChange(this.value)">
-      <option value="">— Choisir —</option>
-    </select>
-  </div>
+  <div class="sidebar-user"></div>
   <div class="sidebar-actions">
     <span class="last-update" id="last-update">Chargement…</span>
-    <button id="btn-refresh" onclick="triggerRefresh()" title="Lancer une collecte immédiate">
+    <button id="btn-refresh" data-admin-only onclick="triggerRefresh()" title="Lancer une collecte immédiate (admin)">
       <span id="refresh-icon">↻</span> Actualiser
     </button>
   </div>
@@ -504,51 +501,55 @@ let sortCol     = 'date_limite';
 let sortAsc     = true;
 let autoRefreshTimer = null;
 
-// ── Triage (partagé via SQLite serveur) ────────────────────────────────────
+// ── Tri commun à toute l'équipe (Supabase) ─────────────────────────────────
 let triageMap = new Map();
+let triageMeta = new Map();   // id → {by: nom, at: horodatage}
 
 async function loadTriage(){
-  // Migration depuis localStorage (première fois après la mise à jour)
-  const LEGACY_KEY = 'ao_veille_triage';
-  const legacy = localStorage.getItem(LEGACY_KEY);
-  if(legacy){
-    try{
-      const obj = JSON.parse(legacy);
-      const entries = Object.entries(obj).filter(([,v])=>v);
-      if(entries.length > 0){
-        await Promise.allSettled(entries.map(([id, state]) =>
-          fetch(`/api/triage/${encodeURIComponent(id)}`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({state})
-          })
-        ));
-        console.log(`Triage migré : ${entries.length} entrées envoyées au serveur`);
-      }
-      localStorage.removeItem(LEGACY_KEY);
-    }catch(e){ console.warn('Migration triage localStorage :', e); }
-  }
-  // Charger depuis le serveur
+  localStorage.removeItem('ao_veille_triage');   // ancien tri local, remplacé par le tri commun
   try{
     const r = await fetch('/api/triage');
     const d = await r.json();
     triageMap = new Map(Object.entries(d.triage || {}));
-  }catch(e){ console.warn('Impossible de charger le triage :', e); }
+    triageMeta = new Map(Object.entries(d.meta || {}));
+  }catch(e){ console.warn('Impossible de charger le tri :', e); }
+}
+
+// Infobulle « Trié par X le JJ/MM » sur le bouton actif.
+function triageTitle(id, label, state){
+  const ts = triageMap.get(id);
+  const m = triageMeta.get(id);
+  if(ts !== state || !m || !m.by) return label;
+  const when = m.at ? ` le ${new Date(m.at).toLocaleDateString('fr-FR')}` : '';
+  return `${label} — trié par ${m.by}${when}`;
 }
 
 async function setTriage(id, val){
   const current = triageMap.get(id) || null;
-  const newState = (current === val) ? null : val; // toggle off → non trié
+  const newState = (current === val) ? null : val; // re-clic → non trié
+  const previous = {state: current, meta: triageMeta.get(id)};
   // Mise à jour optimiste (immédiate)
-  if(newState) triageMap.set(id, newState);
-  else triageMap.delete(id);
+  if(newState){
+    triageMap.set(id, newState);
+    triageMeta.set(id, {by: VeilleAuth.user.name, at: new Date().toISOString()});
+  } else {
+    triageMap.delete(id);
+    triageMeta.delete(id);
+  }
   applyAndRender();
-  // Synchronisation serveur
   try{
-    await fetch(`/api/triage/${encodeURIComponent(id)}`, {
+    const r = await fetch(`/api/triage/${encodeURIComponent(id)}`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({state: newState})
     });
-  }catch(e){ console.warn('Triage non sauvegardé :', e); }
+    if(!r.ok) throw new Error((await r.json()).error || ('HTTP ' + r.status));
+  }catch(e){
+    // Échec : on revient à l'état précédent pour ne pas afficher un tri non enregistré.
+    if(previous.state){ triageMap.set(id, previous.state); if(previous.meta) triageMeta.set(id, previous.meta); }
+    else { triageMap.delete(id); triageMeta.delete(id); }
+    applyAndRender();
+    alert('Tri non enregistré : ' + e.message);
+  }
 }
 
 const MONTHS = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
@@ -664,38 +665,15 @@ function toggleGroup(selector, root){
   applyAndRender();
 }
 
-// ── Paramètres & Exclusion — partagés via SQLite serveur ──────────────────
+// ── Paramètres & Exclusion — mots-clés partagés par toute l'équipe ────────
 let paramsKeywords  = [];
 let excludeKeywords = [];
 
 async function loadSettings(){
-  // Migration depuis localStorage (première fois après mise à jour)
-  const legacyParams   = localStorage.getItem('ao_veille_params_keywords');
-  const legacyExclude  = localStorage.getItem('ao_veille_exclude_keywords');
-  const migrations = [];
-  if(legacyParams){
-    try{
-      const arr = JSON.parse(legacyParams);
-      if(arr.length) migrations.push(
-        fetch('/api/settings/params_keywords', {method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({value: legacyParams})})
-      );
-      localStorage.removeItem('ao_veille_params_keywords');
-    }catch(e){}
-  }
-  if(legacyExclude){
-    try{
-      const arr = JSON.parse(legacyExclude);
-      if(arr.length) migrations.push(
-        fetch('/api/settings/exclude_keywords', {method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({value: legacyExclude})})
-      );
-      localStorage.removeItem('ao_veille_exclude_keywords');
-    }catch(e){}
-  }
-  if(migrations.length) await Promise.allSettled(migrations);
+  // Anciennes listes stockées dans ce navigateur : on les oublie (la liste
+  // partagée côté serveur fait foi et ne doit pas être écrasée).
+  localStorage.removeItem('ao_veille_params_keywords');
+  localStorage.removeItem('ao_veille_exclude_keywords');
 
   // Charger depuis le serveur
   try{
@@ -1084,9 +1062,9 @@ function renderTable(){
     return `<tr class="${pc}${trClass}">
       <td style="text-align:center;padding:.42rem .3rem">
         <div class="triage-btns">
-          <button class="triage-btn${ts==='non-pertinent'?' active':''}" onclick="setTriage('${esc(n.id)}','non-pertinent')" title="Non pertinent">🗑️</button>
-          <button class="triage-btn${ts==='pre-tri'?' active':''}" onclick="setTriage('${esc(n.id)}','pre-tri')" title="Pré-Tri">🔄</button>
-          <button class="triage-btn${ts==='pertinent'?' active':''}" onclick="setTriage('${esc(n.id)}','pertinent')" title="Pertinent">⭐</button>
+          <button class="triage-btn${ts==='non-pertinent'?' active':''}" onclick="setTriage('${esc(n.id)}','non-pertinent')" title="${esc(triageTitle(n.id,'Non pertinent','non-pertinent'))}">🗑️</button>
+          <button class="triage-btn${ts==='pre-tri'?' active':''}" onclick="setTriage('${esc(n.id)}','pre-tri')" title="${esc(triageTitle(n.id,'Pré-Tri','pre-tri'))}">🔄</button>
+          <button class="triage-btn${ts==='pertinent'?' active':''}" onclick="setTriage('${esc(n.id)}','pertinent')" title="${esc(triageTitle(n.id,'Pertinent','pertinent'))}">⭐</button>
         </div>
       </td>
       <td><span class="badge ${bc}">${esc(bailleurShort)}</span></td>
@@ -1129,26 +1107,41 @@ function resetFilters(){
   // Note : les mots-clés "Paramètres" sont intentionnellement conservés
 }
 
-// ── Refresh trigger ────────────────────────────────────────────────────────
+// ── Collecte manuelle (admin) : les sources une par une ────────────────────
+// Chaque source est un appel court (limite de durée Vercel) ; on affiche la
+// progression et on récapitule les erreurs à la fin.
 async function triggerRefresh(){
   const btn=document.getElementById('btn-refresh');
+  const status=document.getElementById('last-update');
   btn.disabled=true;
   btn.innerHTML='<span class="spinner"></span> Collecte…';
-  document.getElementById('last-update').textContent='Collecte démarrée…';
+  let sources=[];
   try{
-    await fetch('/api/refresh',{method:'POST'});
+    const r=await fetch('/api/collect/status');
+    sources=(await r.json()).available||[];
   }catch(e){ console.warn(e) }
-  // Poll until done
-  const check=setInterval(async()=>{
+
+  const errors=[]; let added=0;
+  for(let i=0;i<sources.length;i++){
+    const s=sources[i];
+    status.textContent=`Collecte ${i+1}/${sources.length} : ${s.label}…`;
     try{
-      const r=await fetch('/api/refresh/status');
-      const s=await r.json();
-      if(!s.is_running){
-        clearInterval(check);
-        await loadNotices();
-      }
-    }catch(e){ clearInterval(check); await loadNotices(); }
-  },2500);
+      const r=await fetch(`/api/collect/${encodeURIComponent(s.key)}`,{method:'POST'});
+      const d=await r.json();
+      if(!r.ok||!d.ok) errors.push(`${s.label} : ${d.error||('HTTP '+r.status)}`);
+      else added+=d.inserted||0;
+    }catch(e){ errors.push(`${s.label} : ${e.message}`) }
+  }
+  await loadNotices();
+  if(errors.length){
+    status.textContent=`Collecte terminée · ${errors.length} source(s) en erreur`;
+    status.title=errors.join('\n');
+    alert('Collecte terminée avec des erreurs :\n\n'+errors.join('\n'));
+  } else {
+    status.title='';
+    status.textContent=`Collecte terminée · ${added} AO ajouté(s)`;
+    setTimeout(()=>loadNotices(),4000);
+  }
 }
 
 // ── Auto-refresh every 5 min ───────────────────────────────────────────────
@@ -1168,47 +1161,8 @@ function toggleFilters(){
   if(btn) btn.textContent = isOpen ? 'Masquer ▲' : 'Afficher ▼';
 }
 
-// ── Identité utilisateur + badge notifications ─────────────────────────────
-const USER_KEY = 'ao_veille_current_user';
-let teamMembers = [];
-
-async function loadTeam(){
-  try{
-    const r = await fetch('/api/team');
-    const d = await r.json();
-    teamMembers = d.members || [];
-    const sel = document.getElementById('current-user-select');
-    if(!sel) return;
-    const current = localStorage.getItem(USER_KEY) || '';
-    sel.innerHTML = '<option value="">— Choisir —</option>' +
-      teamMembers.map(m =>
-        `<option value="${esc(m.name)}"${m.name===current?' selected':''}>${esc(m.name)}</option>`
-      ).join('');
-    if(current) updateAssignBadge(current);
-  }catch(e){ console.warn('loadTeam:', e); }
-}
-
-function onUserChange(val){
-  if(val) localStorage.setItem(USER_KEY, val);
-  else localStorage.removeItem(USER_KEY);
-  updateAssignBadge(val);
-}
-
-async function updateAssignBadge(user){
-  const badge  = document.getElementById('assign-badge');
-  const mBadge = document.getElementById('mobile-badge');
-  const hide = ()=>{ if(badge) badge.style.display='none'; if(mBadge) mBadge.style.display='none'; };
-  if(!user){ hide(); return; }
-  try{
-    const r = await fetch(`/api/assignments/user/${encodeURIComponent(user)}`);
-    const d = await r.json();
-    const unread = d.unread || 0;
-    if(unread > 0){
-      if(badge){ badge.textContent=unread; badge.style.display=''; }
-      if(mBadge){ mBadge.textContent=unread; mBadge.style.display=''; }
-    } else { hide(); }
-  }catch(e){ hide(); }
-}
+// L'identité (compte connecté) et le badge d'assignations sont gérés par
+// /static/auth.js (VeilleAuth.user, VeilleAuth.refreshAssignBadge).
 
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init(){
@@ -1227,19 +1181,15 @@ async function init(){
     }
   });
 
-  await Promise.all([loadTriage(), loadSettings(), loadTeam()]);
+  await Promise.all([loadTriage(), loadSettings()]);
   renderParamsChips();
   renderExcludeChips();
   await loadNotices();
   startAutoRefresh();
-  // Rafraîchir le badge toutes les 2 min
-  setInterval(()=>{
-    const user = localStorage.getItem(USER_KEY);
-    if(user) updateAssignBadge(user);
-  }, 2*60*1000);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Démarrage une fois la connexion vérifiée (compte validé).
+VeilleAuth.onReady(init);
 </script>
 
 </div><!-- /.layout-content -->

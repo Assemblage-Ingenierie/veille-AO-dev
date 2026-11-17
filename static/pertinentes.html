@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="/static/auth.js"></script>
 <style>
 :root {
   --ai-rouge:       #E30513;
@@ -211,12 +213,7 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
   </a>
   <a class="sidebar-nav" href="/params">Paramètres</a>
   <div class="sidebar-spacer"></div>
-  <div class="sidebar-user">
-    <div class="sidebar-user-label">Je suis</div>
-    <select class="user-select" id="current-user-select" onchange="onUserChange(this.value)">
-      <option value="">— Choisir —</option>
-    </select>
-  </div>
+  <div class="sidebar-user"></div>
 </nav>
 
 <div class="layout-content">
@@ -261,24 +258,16 @@ async function loadTriage(){
 }
 
 // ── Équipe & Assignations ────────────────────────────────────────────────────
-let teamMembers = [];
-let allAssignments = {};
-const USER_KEY = 'ao_veille_current_user';
-let currentUser = localStorage.getItem(USER_KEY) || '';
+// Les membres sont les comptes validés ; une assignation désigne un compte (id).
+let teamMembers = [];      // [{id, name, email, role}]
+let allAssignments = {};   // {notice_id: [{assignee, assignee_name, assigned_by_name, …}]}
 
 async function loadTeam(){
   try{
     const r = await fetch('/api/team');
     const d = await r.json();
     teamMembers = d.members || [];
-    const sel = document.getElementById('current-user-select');
-    teamMembers.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.name; opt.textContent = m.name;
-      if(m.name === currentUser) opt.selected = true;
-      sel.appendChild(opt);
-    });
-  }catch(e){}
+  }catch(e){ console.warn('Équipe :', e); }
 }
 
 async function loadAssignments(){
@@ -286,31 +275,19 @@ async function loadAssignments(){
     const r = await fetch('/api/assignments');
     const d = await r.json();
     allAssignments = d.assignments || {};
-  }catch(e){}
+  }catch(e){ console.warn('Assignations :', e); }
 }
 
-function onUserChange(val){
-  currentUser = val;
-  localStorage.setItem(USER_KEY, val);
-  updateAssignBadge();
-}
-
-async function updateAssignBadge(){
-  const badge = document.getElementById('assign-badge');
-  if(!currentUser || !badge){ if(badge) badge.style.display='none'; return; }
-  try{
-    const r = await fetch(`/api/assignments/user/${encodeURIComponent(currentUser)}`);
-    const d = await r.json();
-    if(d.unread > 0){ badge.textContent=d.unread; badge.style.display='inline-flex'; }
-    else badge.style.display='none';
-  }catch(e){}
+function memberName(id){
+  const m = teamMembers.find(x => x.id === id);
+  return m ? m.name : '';
 }
 
 // ── Utils ────────────────────────────────────────────────────────────────────
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function fmtDate(s){ if(!s) return ''; try{ return new Date(s+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}); }catch{ return s; } }
 function isUrgent(s){ if(!s) return false; const d=(new Date(s)-new Date())/(1000*86400); return d>=0&&d<=7; }
-function badgeClass(b){ return b==='Banque Mondiale'?'badge-bm':b==='PNUD'?'badge-pnud':b==='GIZ'?'badge-giz':b==='BERD'?'badge-berd':b==='AFD'?'badge-afd':''; }
+function badgeClass(b){ return b==='Banque Mondiale'?'badge-bm':b==='PNUD'?'badge-pnud':b==='GIZ'?'badge-giz':b==='BERD'?'badge-berd':b==='AFD'?'badge-afd':b==='TED'?'badge-ted':b==='Expertise France'?'badge-ef':''; }
 function dotClass(p){ return p==='Haute'?'dot-haute':p==='Moyenne'?'dot-moyenne':'dot-verifier'; }
 
 // ── Section assignation ───────────────────────────────────────────────────────
@@ -318,13 +295,13 @@ function renderAssignSection(noticeId){
   const assigned = allAssignments[noticeId] || [];
   const chips = assigned.map(a =>
     `<span class="assign-chip">
-      ${esc(a.assignee)}
-      ${a.assigned_by ? `<small>par ${esc(a.assigned_by)}</small>` : ''}
+      ${esc(a.assignee_name || memberName(a.assignee) || 'Ancien membre')}
+      ${a.assigned_by_name ? `<small>par ${esc(a.assigned_by_name)}</small>` : ''}
       <button class="assign-chip-remove" onclick="removeAssign('${esc(noticeId)}','${esc(a.assignee)}')" title="Retirer">✕</button>
     </span>`
   ).join('');
-  const available = teamMembers.filter(m => !assigned.some(a => a.assignee === m.name));
-  const opts = available.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
+  const available = teamMembers.filter(m => !assigned.some(a => a.assignee === m.id));
+  const opts = available.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
   const form = opts ? `
     <select class="assign-select" id="asel-${esc(noticeId)}">
       <option value="">Assigner à…</option>${opts}
@@ -342,33 +319,38 @@ async function doAssign(noticeId){
   if(!sel || !sel.value) return;
   const assignee = sel.value;
   try{
-    await fetch(`/api/assignments/${encodeURIComponent(noticeId)}`, {
+    const r = await fetch(`/api/assignments/${encodeURIComponent(noticeId)}`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({assignee, assigned_by: currentUser || null})
+      body: JSON.stringify({assignee})
     });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
     if(!allAssignments[noticeId]) allAssignments[noticeId] = [];
-    allAssignments[noticeId].push({assignee, assigned_by: currentUser||null, assigned_at: new Date().toISOString()});
+    allAssignments[noticeId].push({
+      assignee, assignee_name: memberName(assignee),
+      assigned_by: VeilleAuth.user.id, assigned_by_name: VeilleAuth.user.name,
+      assigned_at: new Date().toISOString(),
+    });
     const sec = document.getElementById(`asec-${noticeId}`);
     if(sec) sec.outerHTML = renderAssignSection(noticeId);
-  }catch(e){ console.warn('Assign:', e); }
+  }catch(e){ alert('Assignation impossible : ' + e.message); }
 }
 
 async function removeAssign(noticeId, assignee){
   try{
-    await fetch(`/api/assignments/${encodeURIComponent(noticeId)}`, {
-      method:'DELETE', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({assignee})
-    });
+    const r = await fetch(`/api/assignments/${encodeURIComponent(noticeId)}?assignee=${encodeURIComponent(assignee)}`,
+                          {method:'DELETE'});
+    if(!r.ok) throw new Error((await r.json()).error || ('HTTP ' + r.status));
     if(allAssignments[noticeId])
       allAssignments[noticeId] = allAssignments[noticeId].filter(a => a.assignee !== assignee);
     const sec = document.getElementById(`asec-${noticeId}`);
     if(sec) sec.outerHTML = renderAssignSection(noticeId);
-  }catch(e){ console.warn('Remove assign:', e); }
+  }catch(e){ alert('Retrait impossible : ' + e.message); }
 }
 
 // ── Rendu des cartes ──────────────────────────────────────────────────────────
 function renderCard(n){
-  const bailleurShort = n.bailleur==='Banque Mondiale'?'BM':n.bailleur;
+  const bailleurShort = n.bailleur==='Banque Mondiale'?'BM':(n.bailleur==='Expertise France'?'EF':n.bailleur);
   const metaRows = [
     n.pays        ? `<div class="meta-row">🌍 ${esc(n.pays)}</div>` : '',
     n.date_limite ? `<div class="meta-row${isUrgent(n.date_limite)?' urgent':''}">⏰ ${fmtDate(n.date_limite)}</div>` : '',
@@ -471,23 +453,18 @@ async function fetchDetail(noticeId, force=false){
 async function init(){
   await Promise.all([loadTriage(), loadTeam(), loadAssignments()]);
 
-  // Vérifier les nouvelles assignations pour l'utilisateur courant
-  if(currentUser){
-    try{
-      const r = await fetch(`/api/assignments/user/${encodeURIComponent(currentUser)}?mark_seen=true`);
-      const d = await r.json();
-      if(d.unread > 0){
-        const n = d.unread;
-        document.getElementById('assign-banner-text').textContent =
-          `🔔 ${n} nouvelle${n>1?'s':''} offre${n>1?'s':''} vous ${n>1?'ont':'a'} été assignée${n>1?'s':''}.`;
-        document.getElementById('assign-banner').style.display = 'flex';
-      }
-      const badge = document.getElementById('assign-badge');
-      if(badge) badge.style.display = 'none'; // marqué comme vu
-    }catch(e){}
-  } else {
-    await updateAssignBadge();
-  }
+  // Nouvelles assignations du compte connecté (puis marquées comme vues)
+  try{
+    const r = await fetch('/api/assignments/me?mark_seen=true');
+    const d = await r.json();
+    if(d.unread > 0){
+      const n = d.unread;
+      document.getElementById('assign-banner-text').textContent =
+        `🔔 ${n} nouvelle${n>1?'s':''} offre${n>1?'s':''} vous ${n>1?'ont':'a'} été assignée${n>1?'s':''}.`;
+      document.getElementById('assign-banner').style.display = 'flex';
+    }
+    VeilleAuth.refreshAssignBadge();
+  }catch(e){ console.warn('Assignations :', e); }
 
   // Charger les AO pertinents
   let allNotices = [];
@@ -526,7 +503,8 @@ async function init(){
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Démarrage une fois la connexion vérifiée (compte validé).
+VeilleAuth.onReady(init);
 </script>
 </body>
 </html>

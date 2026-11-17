@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="/static/auth.js"></script>
 <style>
 :root {
   --ai-rouge:       #E30513;
@@ -51,10 +53,6 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
 .sidebar-user{padding:.55rem 1rem .5rem;border-top:1px solid #CDD2D6}
 .sidebar-user-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
   letter-spacing:.08em;color:var(--ai-noir70);margin-bottom:.3rem}
-.user-select{width:100%;padding:.28rem .42rem;border:1px solid #CDD2D6;
-  border-radius:3px;font-size:.78rem;font-family:inherit;color:var(--ai-violet);
-  background:#fff;cursor:pointer}
-.user-select:focus{outline:none;border-color:var(--ai-violet)}
 .layout-content{flex:1;min-width:0}
 
 /* ── Layout ── */
@@ -75,44 +73,28 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
 .section-card-head h3{font-size:.88rem;font-weight:700;color:var(--ai-violet)}
 .section-card-body{padding:1rem}
 
+/* ── Compte ── */
+.account{display:grid;grid-template-columns:120px 1fr;gap:.45rem .8rem;font-size:.84rem}
+.account dt{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ai-noir70);padding-top:.1rem}
+.account dd{color:#000}
+
 /* ── Team table ── */
 .team-table{width:100%;border-collapse:collapse}
 .team-table th{text-align:left;font-size:.71rem;font-weight:700;
   text-transform:uppercase;letter-spacing:.06em;color:var(--ai-noir70);
   padding:.3rem .5rem .45rem;border-bottom:2px solid var(--border)}
-.team-table td{padding:.35rem .5rem;border-bottom:1px solid var(--ai-gris-clair);
-  vertical-align:middle}
+.team-table td{padding:.45rem .5rem;border-bottom:1px solid var(--ai-gris-clair);
+  vertical-align:middle;font-size:.84rem}
 .team-table tr:last-child td{border-bottom:none}
-.team-table input[type=text]{width:100%;padding:.3rem .5rem;
-  border:1px solid var(--border);border-radius:3px;
-  font-size:.82rem;font-family:inherit;color:#000;background:#fff}
-.team-table input[type=text]:focus{outline:none;border-color:var(--ai-violet);
-  box-shadow:0 0 0 2px rgba(48,50,62,.1)}
-.team-table input.changed{border-color:var(--ai-violet);background:#f5f6fa}
+.tag{display:inline-block;font-size:.68rem;font-weight:700;padding:.05rem .45rem;border-radius:3px;
+  background:var(--ai-gris);color:var(--ai-violet)}
+.tag.admin{background:var(--ai-violet);color:#fff}
 
 /* ── Buttons ── */
 .btn{padding:.32rem .85rem;border:none;border-radius:3px;cursor:pointer;
-  font-size:.82rem;font-weight:600;transition:all .12s;font-family:inherit}
-.btn-primary{background:var(--ai-rouge);color:#fff}
-.btn-primary:hover{background:#c00411}
+  font-size:.82rem;font-weight:600;transition:all .12s;font-family:inherit;text-decoration:none;display:inline-block}
 .btn-outline{background:transparent;border:1px solid var(--border);color:#000}
 .btn-outline:hover{border-color:var(--ai-violet);color:var(--ai-violet)}
-.btn-danger{background:transparent;border:none;color:#94a3b8;cursor:pointer;
-  font-size:1rem;line-height:1;padding:2px 5px;border-radius:3px;font-family:inherit}
-.btn-danger:hover{color:var(--ai-rouge);background:var(--ai-rouge-clair)}
-.btn-add{display:flex;align-items:center;gap:.4rem;
-  background:transparent;border:1px dashed var(--border);
-  color:var(--ai-noir70);padding:.4rem .85rem;border-radius:3px;
-  cursor:pointer;font-size:.82rem;font-family:inherit;
-  transition:all .12s;margin-top:.7rem;width:100%;justify-content:center}
-.btn-add:hover{border-color:var(--ai-violet);color:var(--ai-violet);background:var(--ai-gris-clair)}
-
-/* ── Action bar ── */
-.action-bar{display:flex;align-items:center;gap:.7rem;margin-top:1rem;
-  padding-top:.85rem;border-top:1px solid var(--border)}
-.save-status{font-size:.78rem;color:var(--ai-noir70);flex:1}
-.save-status.ok{color:#16a34a}
-.save-status.err{color:var(--ai-rouge)}
 
 /* ── Info box ── */
 .info-box{background:var(--ai-gris-clair);border-radius:3px;
@@ -141,20 +123,12 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
   body.sidebar-open .sidebar{transform:translateX(0)}
   body.sidebar-open .sidebar-overlay{display:block}
   .container{padding:.7rem .75rem}
+  .account{grid-template-columns:1fr}
   .team-table thead{display:none}
   .team-table tr{display:flex;flex-direction:column;
     border:1px solid var(--border);border-radius:4px;
     padding:.6rem .7rem;margin-bottom:.6rem;background:#fff}
-  .team-table td{border:none;padding:.2rem 0}
-  .team-table td:last-child{text-align:right}
-  .team-table input[type=text]{font-size:.85rem}
-  .action-bar{flex-direction:column}
-  .action-bar .btn{width:100%}
-  .save-status{text-align:center}
-}
-@media(max-width:480px){
-  .section-card-body{padding:.75rem}
-  div[style*="max-width:440px"]{max-width:100% !important}
+  .team-table td{border:none;padding:.15rem 0}
 }
 </style>
 </head>
@@ -183,12 +157,7 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
   </a>
   <a class="sidebar-nav active" href="/params">Paramètres</a>
   <div class="sidebar-spacer"></div>
-  <div class="sidebar-user">
-    <div class="sidebar-user-label">Je suis</div>
-    <select class="user-select" id="current-user-select" onchange="onUserChange(this.value)">
-      <option value="">— Choisir —</option>
-    </select>
-  </div>
+  <div class="sidebar-user"></div>
 </nav>
 
 <div class="layout-content">
@@ -196,81 +165,38 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
 
   <div class="page-title">
     <h2>⚙️ Paramètres</h2>
-    <p>Configuration partagée entre tous les membres de l'équipe</p>
+    <p>Votre compte et l'équipe ayant accès à la plateforme</p>
   </div>
 
-  <!-- Équipe -->
+  <div class="section-card">
+    <div class="section-card-head"><h3>👤 Mon compte</h3></div>
+    <div class="section-card-body">
+      <dl class="account">
+        <dt>Nom</dt><dd id="acc-name">—</dd>
+        <dt>Email</dt><dd id="acc-email">—</dd>
+        <dt>Rôle</dt><dd id="acc-role">—</dd>
+      </dl>
+      <div style="margin-top:1rem">
+        <button class="btn btn-outline" type="button" onclick="VeilleAuth.signOut()">Se déconnecter</button>
+      </div>
+    </div>
+  </div>
+
   <div class="section-card">
     <div class="section-card-head">
-      <h3>👥 Membres de l'équipe</h3>
+      <h3>👥 Équipe</h3>
+      <a class="btn btn-outline" href="/admin" id="admin-link" style="display:none">Gérer les accès →</a>
     </div>
     <div class="section-card-body">
       <div class="info-box" style="margin-bottom:.9rem">
-        Ces informations sont <b>partagées</b> via la base de données commune — toute modification est visible immédiatement par tous les collègues.<br>
-        L'adresse email sera utilisée pour les notifications d'assignation (fonctionnalité à venir).
+        L'équipe est constituée des <b>comptes validés</b>. Chacun se connecte avec son compte
+        Google <b>@assemblage.net</b> ; les nouvelles demandes d'accès sont validées par un
+        administrateur. Les assignations d'AO envoient un email au membre concerné.
       </div>
       <table class="team-table">
-        <thead>
-          <tr>
-            <th style="width:40%">Nom</th>
-            <th>Email</th>
-            <th style="width:36px"></th>
-          </tr>
-        </thead>
-        <tbody id="team-tbody">
-          <!-- Rempli par JS -->
-        </tbody>
+        <thead><tr><th>Nom</th><th>Email</th><th style="width:90px">Rôle</th></tr></thead>
+        <tbody id="team-tbody"><tr><td colspan="3">Chargement…</td></tr></tbody>
       </table>
-      <button class="btn-add" onclick="addMemberRow()">+ Ajouter un collègue</button>
-      <div class="action-bar">
-        <span class="save-status" id="save-status"></span>
-        <button class="btn btn-outline" onclick="loadTeamData()">Annuler</button>
-        <button class="btn btn-primary" onclick="saveTeam()">Enregistrer</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Notifications email -->
-  <div class="section-card">
-    <div class="section-card-head">
-      <h3>📧 Notifications email</h3>
-    </div>
-    <div class="section-card-body">
-
-      <div class="info-box" style="margin-bottom:1rem">
-        <b>Configuration Gmail requise (1 fois) :</b><br>
-        1. Connectez-vous à <b>myaccount.google.com</b><br>
-        2. Sécurité → Validation en 2 étapes (doit être activée)<br>
-        3. Sécurité → <b>Mots de passe des applications</b> → créer un mot de passe pour "Veille AO"<br>
-        4. Copiez le mot de passe à 16 caractères généré et collez-le ci-dessous.<br>
-        <span style="color:var(--ai-rouge)">⚠ Ne pas utiliser votre mot de passe Gmail habituel.</span>
-      </div>
-
-      <div style="display:grid;gap:.7rem;max-width:440px">
-        <div>
-          <label style="display:block;font-size:.75rem;font-weight:700;color:var(--ai-noir70);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">
-            Adresse Gmail expéditeur
-          </label>
-          <input type="email" id="smtp-user" placeholder="veille@gmail.com"
-                 style="width:100%;padding:.35rem .6rem;border:1px solid var(--border);
-                        border-radius:3px;font-size:.85rem;font-family:inherit">
-        </div>
-        <div>
-          <label style="display:block;font-size:.75rem;font-weight:700;color:var(--ai-noir70);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em">
-            Mot de passe d'application (16 caractères)
-          </label>
-          <input type="password" id="smtp-password" placeholder="xxxx xxxx xxxx xxxx"
-                 autocomplete="new-password"
-                 style="width:100%;padding:.35rem .6rem;border:1px solid var(--border);
-                        border-radius:3px;font-size:.85rem;font-family:inherit;letter-spacing:.1em">
-        </div>
-      </div>
-
-      <div class="action-bar">
-        <span class="save-status" id="smtp-status"></span>
-        <button class="btn btn-outline" onclick="testSmtp()">Tester l'envoi</button>
-        <button class="btn btn-primary" onclick="saveSmtp()">Enregistrer</button>
-      </div>
     </div>
   </div>
 
@@ -284,224 +210,34 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
 'use strict';
 
 function toggleSidebar(){ document.body.classList.toggle('sidebar-open') }
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
-// ── Identité utilisateur + badge ───────────────────────────────────────────
-const USER_KEY = 'ao_veille_current_user';
-
-async function updateAssignBadge(user){
-  const badge = document.getElementById('assign-badge');
-  if(!badge) return;
-  if(!user){ badge.style.display='none'; return; }
-  try{
-    const r = await fetch(`/api/assignments/user/${encodeURIComponent(user)}`);
-    const d = await r.json();
-    const unread = d.unread || 0;
-    badge.textContent = unread;
-    badge.style.display = unread > 0 ? '' : 'none';
-  }catch(e){ badge.style.display='none'; }
-}
-
-function onUserChange(val){
-  if(val) localStorage.setItem(USER_KEY, val);
-  else localStorage.removeItem(USER_KEY);
-  updateAssignBadge(val);
-  // Rafraîchir le select pour que l'option soit visible dans la sidebar de pertinentes
-}
-
-// ── Équipe ─────────────────────────────────────────────────────────────────
-let originalMembers = [];
-
-async function loadTeamData(){
+async function loadTeam(){
+  const tbody = document.getElementById('team-tbody');
   try{
     const r = await fetch('/api/team');
     const d = await r.json();
-    originalMembers = d.members || [];
-    renderTeamTable(originalMembers);
-    // Remplir aussi le sélecteur "Je suis"
-    populateUserSelect(originalMembers);
+    if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    const members = d.members || [];
+    tbody.innerHTML = members.length ? members.map(m => `
+      <tr>
+        <td>${esc(m.name)}</td>
+        <td>${esc(m.email)}</td>
+        <td><span class="tag ${m.role === 'admin' ? 'admin' : ''}">${m.role === 'admin' ? 'Admin' : 'Membre'}</span></td>
+      </tr>`).join('')
+      : '<tr><td colspan="3" style="font-style:italic;color:var(--ai-noir70)">Aucun membre validé.</td></tr>';
   }catch(e){
-    setStatus('Erreur de chargement', 'err');
+    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--ai-rouge)">Erreur de chargement : ${esc(e.message)}</td></tr>`;
   }
 }
 
-function populateUserSelect(members){
-  const sel = document.getElementById('current-user-select');
-  if(!sel) return;
-  const current = localStorage.getItem(USER_KEY) || '';
-  sel.innerHTML = '<option value="">— Choisir —</option>' +
-    members.map(m =>
-      `<option value="${esc(m.name)}"${m.name===current?' selected':''}>${esc(m.name)}</option>`
-    ).join('');
-  if(current) updateAssignBadge(current);
-}
-
-function renderTeamTable(members){
-  const tbody = document.getElementById('team-tbody');
-  if(!members.length){
-    tbody.innerHTML = `<tr><td colspan="3" style="padding:.8rem .5rem;color:var(--ai-noir70);font-style:italic;text-align:center">
-      Aucun membre — cliquez sur "+ Ajouter un collègue"
-    </td></tr>`;
-    return;
-  }
-  tbody.innerHTML = members.map((m, i) => `
-    <tr data-idx="${i}">
-      <td><input type="text" class="member-name" data-idx="${i}"
-            value="${esc(m.name)}" placeholder="Prénom Nom"
-            oninput="markChanged(this)"></td>
-      <td><input type="text" class="member-email" data-idx="${i}"
-            value="${esc(m.email||'')}" placeholder="adresse@mail.com"
-            oninput="markChanged(this)"></td>
-      <td><button class="btn-danger" onclick="removeMemberRow(${i})" title="Supprimer">×</button></td>
-    </tr>
-  `).join('');
-  setStatus('');
-}
-
-function markChanged(input){
-  input.classList.add('changed');
-  setStatus('Modifications non enregistrées', '');
-}
-
-function addMemberRow(){
-  const tbody = document.getElementById('team-tbody');
-  // Remove empty-state row if present
-  if(tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
-  const i = tbody.rows.length;
-  const tr = document.createElement('tr');
-  tr.dataset.idx = i;
-  tr.innerHTML = `
-    <td><input type="text" class="member-name" data-idx="${i}"
-          value="" placeholder="Prénom Nom"
-          oninput="markChanged(this)"></td>
-    <td><input type="text" class="member-email" data-idx="${i}"
-          value="" placeholder="adresse@mail.com"
-          oninput="markChanged(this)"></td>
-    <td><button class="btn-danger" onclick="this.closest('tr').remove(); setStatus('Modifications non enregistrées', '')" title="Supprimer">×</button></td>`;
-  tbody.appendChild(tr);
-  tr.querySelector('.member-name').focus();
-  setStatus('Modifications non enregistrées', '');
-}
-
-function removeMemberRow(idx){
-  const row = document.querySelector(`tr[data-idx="${idx}"]`);
-  if(row) row.remove();
-  setStatus('Modifications non enregistrées', '');
-}
-
-function collectMembers(){
-  const rows = document.querySelectorAll('#team-tbody tr[data-idx]');
-  const members = [];
-  for(const row of rows){
-    const name  = (row.querySelector('.member-name')?.value  || '').trim();
-    const email = (row.querySelector('.member-email')?.value || '').trim();
-    if(name) members.push({ name, email });
-  }
-  return members;
-}
-
-async function saveTeam(){
-  const members = collectMembers();
-  try{
-    const r = await fetch('/api/team', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ members })
-    });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    originalMembers = members;
-    renderTeamTable(members);
-    populateUserSelect(members);
-    setStatus('✓ Enregistré', 'ok');
-    setTimeout(()=>setStatus(''), 3000);
-  }catch(e){
-    setStatus('Erreur lors de la sauvegarde', 'err');
-  }
-}
-
-function setStatus(msg, cls){
-  const el = document.getElementById('save-status');
-  if(!el) return;
-  el.textContent = msg;
-  el.className = 'save-status' + (cls ? ' ' + cls : '');
-}
-
-// ── SMTP config ────────────────────────────────────────────────────────────
-async function loadSmtpConfig(){
-  try{
-    const r = await fetch('/api/settings/smtp_config');
-    const d = await r.json();
-    if(d.value){
-      const cfg = JSON.parse(d.value);
-      document.getElementById('smtp-user').value     = cfg.user     || '';
-      document.getElementById('smtp-password').value = cfg.password || '';
-    }
-  }catch(e){ console.warn('loadSmtpConfig:', e); }
-}
-
-async function saveSmtp(){
-  const user     = document.getElementById('smtp-user').value.trim();
-  const password = document.getElementById('smtp-password').value.trim();
-  if(!user || !password){
-    setSmtpStatus('Veuillez renseigner l\'adresse et le mot de passe.', 'err');
-    return;
-  }
-  try{
-    await fetch('/api/settings/smtp_config', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ value: JSON.stringify({ user, password }) })
-    });
-    setSmtpStatus('✓ Configuration enregistrée', 'ok');
-    setTimeout(()=>setSmtpStatus(''), 3000);
-  }catch(e){
-    setSmtpStatus('Erreur lors de la sauvegarde', 'err');
-  }
-}
-
-async function testSmtp(){
-  const user = document.getElementById('smtp-user').value.trim();
-  if(!user){
-    setSmtpStatus('Renseignez d\'abord l\'adresse Gmail.', 'err');
-    return;
-  }
-  setSmtpStatus('Envoi en cours…', '');
-  try{
-    const r = await fetch('/api/smtp/test', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ to: user })
-    });
-    const d = await r.json();
-    if(d.ok){
-      setSmtpStatus(`✓ Email de test envoyé à ${user}`, 'ok');
-    } else {
-      setSmtpStatus(`✗ ${d.error}`, 'err');
-    }
-  }catch(e){
-    setSmtpStatus(`✗ Erreur réseau : ${e}`, 'err');
-  }
-}
-
-function setSmtpStatus(msg, cls){
-  const el = document.getElementById('smtp-status');
-  if(!el) return;
-  el.textContent = msg;
-  el.className = 'save-status' + (cls ? ' '+cls : '');
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────
-async function init(){
-  await loadTeamData();
-  await loadSmtpConfig();
-  // Rafraîchir le badge toutes les 2 min
-  setInterval(()=>{
-    const user = localStorage.getItem(USER_KEY);
-    if(user) updateAssignBadge(user);
-  }, 2*60*1000);
-}
-
-document.addEventListener('DOMContentLoaded', init);
+VeilleAuth.onReady(me => {
+  document.getElementById('acc-name').textContent = me.name;
+  document.getElementById('acc-email').textContent = me.email;
+  document.getElementById('acc-role').textContent = me.role === 'admin' ? 'Administrateur' : 'Membre';
+  if(me.role === 'admin') document.getElementById('admin-link').style.display = '';
+  loadTeam();
+});
 </script>
 </body>
 </html>

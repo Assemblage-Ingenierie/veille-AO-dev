@@ -1,56 +1,53 @@
+"""Configuration Veille AO.
+
+Paramètres d'environnement et secrets : variables d'environnement (Vercel) ou, en
+développement local, fichier `.env` à la racine (non versionné, voir .env.example).
+Aucun effet de bord à l'import (pas d'écriture disque) : le système de fichiers
+Vercel est en lecture seule.
+"""
 import os
-import shutil
 
-# ── Emplacement de la base de données ─────────────────────────────────────────
-# IMPORTANT : la base SQLite ne DOIT PAS vivre sur Google Drive (disque G:).
-# Le disque virtuel Google Drive ne gère pas le verrouillage de fichiers requis
-# par SQLite -> "Accès refusé", base verrouillée, corruption, erreurs 500.
-# On la place donc dans un dossier LOCAL de la machine, hors de toute synchro.
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_OLD_DB = os.path.join(_HERE, "ao_database.db")  # ancienne base sur le Drive
-
-_LOCAL_DIR = os.path.join(
-    os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "VeilleAO"
-)
-os.makedirs(_LOCAL_DIR, exist_ok=True)
-DB_PATH = os.path.join(_LOCAL_DIR, "ao_database.db")
-
-# Migration unique : si une base existe encore sur le Drive et qu'aucune base
-# locale n'a encore été créée, on la recopie — MAIS seulement si elle est saine.
-# (Recopier une base corrompue ne ferait que propager le problème.)
-def _is_valid_sqlite(path: str) -> bool:
-    import sqlite3
-    c = None
-    try:
-        c = sqlite3.connect(path, timeout=5)
-        row = c.execute("PRAGMA quick_check").fetchone()
-        c.execute("SELECT name FROM sqlite_master LIMIT 1")
-        return bool(row) and row[0] == "ok"
-    except Exception:
-        return False
-    finally:
-        if c is not None:
-            try:
-                c.close()
-            except Exception:
-                pass
+_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
-if os.path.exists(_OLD_DB) and not os.path.exists(DB_PATH):
-    if _is_valid_sqlite(_OLD_DB):
-        try:
-            shutil.copy2(_OLD_DB, DB_PATH)
-        except Exception:
-            pass
-    # sinon : ancienne base corrompue -> on repart d'une base vierge
+def _load_dotenv(path: str = os.path.join(_ROOT, ".env")) -> None:
+    """Charge un .env local s'il existe, sans écraser les variables déjà définies."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
-# Membres de l'équipe — modifier cette liste pour ajouter / retirer des collègues
-TEAM_MEMBERS = [
-    {"name": "Chaim",      "email": ""},
-    {"name": "Collègue 1", "email": ""},
-    {"name": "Collègue 2", "email": ""},
-]
-SCHEDULER_TIME = "07:00"
+
+_load_dotenv()
+
+# ── Supabase (projet partagé INTERNAL, tables veilleao_*) ────────────────────
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://hhkofvbptnrtwbazftlm.supabase.co")
+# Clé publique (« publishable ») : conçue pour être exposée au navigateur ; avec le
+# jeton de l'utilisateur, la sécurité de la base (RLS) s'applique.
+SUPABASE_PUBLISHABLE_KEY = os.environ.get(
+    "SUPABASE_PUBLISHABLE_KEY", "sb_publishable_dKYZOMgAeeBsN7HTOpReOw_yeS--rED")
+# Clé secrète : contourne la RLS. Backend uniquement (collecte, cache, emails système).
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+
+# Secret attendu (en-tête « Authorization: Bearer … ») sur les routes /api/cron/*.
+CRON_SECRET = os.environ.get("CRON_SECRET", "")
+
+# URL publique de l'application (liens dans les emails).
+APP_URL = os.environ.get("APP_URL", "http://localhost:8000").rstrip("/")
+
+# ── Emails (SMTP) ─────────────────────────────────────────────────────────────
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+SMTP_FROM = os.environ.get("SMTP_FROM", "") or SMTP_USER
+# Plafond d'emails « demande d'accès » envoyés aux admins par heure ; au-delà, les
+# demandes restent en file et partent groupées au passage suivant.
+ACCESS_MAILS_PER_HOUR = int(os.environ.get("VEILLEAO_ACCESS_MAILS_PER_HOUR", "2"))
 
 STRONG_KEYWORDS = [
     "feasibility", "feasibility study", "étude de faisabilité",

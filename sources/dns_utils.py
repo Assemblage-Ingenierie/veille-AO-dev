@@ -22,10 +22,10 @@ log = logging.getLogger(__name__)
 # Ajouter ici les hostnames pour lesquels le DNS public renvoie NXDOMAIN
 # alors que le serveur existe sur une IP connue (ex. : retrouvée via le cache
 # Chrome → chrome://net-internals/#dns).
-_HARDCODED_DNS: dict[str, str] = {
-    "afd.dgmarket.com":  "52.202.8.86",  # AWS – IP récupérée depuis Chrome DNS cache
-    "www2.dgmarket.com": "52.202.8.86",  # même serveur (redirect vers téléchargements AFD)
-}
+# Vide depuis le passage sur Vercel : afd.dgmarket.com se résout normalement
+# (test de faisabilité du 17/11/2026). Une IP codée en dur casserait la collecte
+# au premier changement d'adresse du serveur.
+_HARDCODED_DNS: dict[str, str] = {}
 
 # ── Patch socket.getaddrinfo (appliqué une seule fois) ────────────────────────
 

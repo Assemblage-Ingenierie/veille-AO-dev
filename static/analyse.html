@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="/static/auth.js"></script>
 <style>
 :root {
   --ai-rouge:       #E30513;
@@ -365,12 +367,7 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
   </a>
   <a class="sidebar-nav" href="/params">Paramètres</a>
   <div class="sidebar-spacer"></div>
-  <div class="sidebar-user">
-    <div class="sidebar-user-label">Je suis</div>
-    <select class="user-select" id="current-user-select" onchange="onUserChange(this.value)">
-      <option value="">— Choisir —</option>
-    </select>
-  </div>
+  <div class="sidebar-user"></div>
 </nav>
 
 <div class="layout-content">
@@ -379,7 +376,7 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
   <div class="page-title">
     <div>
       <h2>📊 Analyse des AO en Pré-Tri</h2>
-      <p>Données enrichies chargées depuis chaque bailleur · Triage persistant dans le navigateur</p>
+      <p>Données enrichies chargées depuis chaque bailleur · Tri partagé par toute l'équipe</p>
     </div>
     <div style="display:flex;align-items:center;gap:.5rem">
       <button class="filter-toggle-btn" onclick="toggleFilterDrawer()" id="filter-toggle-btn">
@@ -405,30 +402,11 @@ body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-c
 <script>
 'use strict';
 
-// ── Triage (partagé via SQLite serveur) ────────────────────────────────────
+// ── Tri commun à toute l'équipe (Supabase) ─────────────────────────────────
 let triageMap = new Map();
 
 async function loadTriage(){
-  // Migration depuis localStorage (première fois après la mise à jour)
-  const LEGACY_KEY = 'ao_veille_triage';
-  const legacy = localStorage.getItem(LEGACY_KEY);
-  if(legacy){
-    try{
-      const obj = JSON.parse(legacy);
-      const entries = Object.entries(obj).filter(([,v])=>v);
-      if(entries.length > 0){
-        await Promise.allSettled(entries.map(([id, state]) =>
-          fetch(`/api/triage/${encodeURIComponent(id)}`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({state})
-          })
-        ));
-        console.log(`Triage migré : ${entries.length} entrées envoyées au serveur`);
-      }
-      localStorage.removeItem(LEGACY_KEY);
-    }catch(e){ console.warn('Migration triage localStorage :', e); }
-  }
-  // Charger depuis le serveur
+  localStorage.removeItem('ao_veille_triage');   // ancien tri local, remplacé par le tri commun
   try{
     const r = await fetch('/api/triage');
     const d = await r.json();
@@ -466,11 +444,16 @@ async function setTriage(id, val){
 
   // Synchronisation serveur
   try{
-    await fetch(`/api/triage/${encodeURIComponent(id)}`, {
+    const r = await fetch(`/api/triage/${encodeURIComponent(id)}`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({state: newState})
     });
-  }catch(e){ console.warn('Triage non sauvegardé :', e); }
+    if(!r.ok) throw new Error((await r.json()).error || ('HTTP ' + r.status));
+  }catch(e){
+    console.warn('Tri non enregistré :', e);
+    alert('Tri non enregistré : ' + e.message + '\nLa page va être rechargée.');
+    location.reload();
+  }
 }
 
 function applyTriageClass(id, state){
@@ -805,51 +788,12 @@ function triageBarAction(val){
   setTimeout(updateTriageBarState, 50);
 }
 
-// ── Identité utilisateur + badge notifications ─────────────────────────────
-const USER_KEY = 'ao_veille_current_user';
-let teamMembers = [];
-
-async function loadTeam(){
-  try{
-    const r = await fetch('/api/team');
-    const d = await r.json();
-    teamMembers = d.members || [];
-    const sel = document.getElementById('current-user-select');
-    if(!sel) return;
-    const current = localStorage.getItem(USER_KEY) || '';
-    sel.innerHTML = '<option value="">— Choisir —</option>' +
-      teamMembers.map(m =>
-        `<option value="${esc(m.name)}"${m.name===current?' selected':''}>${esc(m.name)}</option>`
-      ).join('');
-    if(current) updateAssignBadge(current);
-  }catch(e){ console.warn('loadTeam:', e); }
-}
-
-function onUserChange(val){
-  if(val) localStorage.setItem(USER_KEY, val);
-  else localStorage.removeItem(USER_KEY);
-  updateAssignBadge(val);
-}
-
-async function updateAssignBadge(user){
-  const badge  = document.getElementById('assign-badge');
-  const mBadge = document.getElementById('mobile-badge');
-  const hide = ()=>{ if(badge) badge.style.display='none'; if(mBadge) mBadge.style.display='none'; };
-  if(!user){ hide(); return; }
-  try{
-    const r = await fetch(`/api/assignments/user/${encodeURIComponent(user)}`);
-    const d = await r.json();
-    const unread = d.unread || 0;
-    if(unread > 0){
-      if(badge){ badge.textContent=unread; badge.style.display=''; }
-      if(mBadge){ mBadge.textContent=unread; mBadge.style.display=''; }
-    } else { hide(); }
-  }catch(e){ hide(); }
-}
+// L'identité (compte connecté) et le badge d'assignations sont gérés par
+// /static/auth.js (VeilleAuth.user, VeilleAuth.refreshAssignBadge).
 
 // ── Main ──────────────────────────────────────────────────────────────────
 async function init(){
-  await Promise.all([loadTriage(), loadTeam()]);
+  await loadTriage();
   const triage = triageMap;
 
   // Filtrer les IDs pré-tri
@@ -917,14 +861,8 @@ async function init(){
   setupTriageBar();
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  init();
-  // Rafraîchir le badge toutes les 2 min
-  setInterval(()=>{
-    const user = localStorage.getItem(USER_KEY);
-    if(user) updateAssignBadge(user);
-  }, 2*60*1000);
-});
+// Démarrage une fois la connexion vérifiée (compte validé).
+VeilleAuth.onReady(init);
 </script>
 </body>
 </html>
