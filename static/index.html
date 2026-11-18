@@ -366,7 +366,7 @@ tr.triage-non-pertinent{opacity:.55}
         <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-bailleur')">Bailleur</span>
         <div class="chip-group" id="filter-bailleur">
           <label class="chip"><input type="checkbox" class="f-bailleur" value="Banque Mondiale" checked> BM</label>
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="PNUD" checked> PNUD</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="PNUD"> PNUD</label>
           <label class="chip"><input type="checkbox" class="f-bailleur" value="GIZ" checked> GIZ</label>
           <label class="chip"><input type="checkbox" class="f-bailleur" value="BERD" checked> BERD</label>
           <label class="chip"><input type="checkbox" class="f-bailleur" value="AFD" checked> AFD</label>
@@ -396,7 +396,7 @@ tr.triage-non-pertinent{opacity:.55}
             <span class="dot dot-haute"></span>Haute</label>
           <label class="chip"><input type="checkbox" class="f-pertinence" value="Moyenne" checked>
             <span class="dot dot-moyenne"></span>Moyenne</label>
-          <label class="chip"><input type="checkbox" class="f-pertinence" value="À vérifier">
+          <label class="chip"><input type="checkbox" class="f-pertinence" value="À vérifier" checked>
             <span class="dot dot-averifier"></span>À vérifier</label>
         </div>
         <span class="pertinence-legend">
@@ -1104,8 +1104,10 @@ function applyAndRender(){ applyFilters(); renderTable(); }
 
 // ── Reset ──────────────────────────────────────────────────────────────────
 function resetFilters(){
-  document.querySelectorAll('.f-bailleur,.f-langue,.f-pertinence,.f-pubstate,.f-triage').forEach(c=>{ c.checked=true; });
-  document.querySelectorAll('.f-type').forEach(c=>{ c.checked=true; });
+  // Retour aux réglages par défaut de chaque case (attribut « checked » du HTML,
+  // y compris pour les types d'AO générés) : PNUD décoché, « À vérifier » coché…
+  document.querySelectorAll('.f-bailleur,.f-langue,.f-pertinence,.f-pubstate,.f-triage,.f-type')
+    .forEach(c=>{ c.checked=c.defaultChecked; });
   document.getElementById('dl-from').value=new Date().toISOString().slice(0,10);
   document.getElementById('dl-to').value='';
   applyAndRender();
