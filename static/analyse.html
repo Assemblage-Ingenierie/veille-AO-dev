@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/static/favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" href="/static/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <title>Analyse AO — Assemblage ingénierie</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -681,6 +681,10 @@ function closeFilterDrawer(){
 function applyCardFilters(){
   const bailleurs  = [...document.querySelectorAll('.fd-bailleur:checked')].map(c=>c.value);
   const pertinences= [...document.querySelectorAll('.fd-pertinence:checked')].map(c=>c.value);
+  // Valeurs proposées : une case décochée exclut ses cartes, même si toute la
+  // section est décochée ; une valeur sans case (cas imprévu) ne filtre pas.
+  const offeredB = new Set([...document.querySelectorAll('.fd-bailleur')].map(c=>c.value));
+  const offeredP = new Set([...document.querySelectorAll('.fd-pertinence')].map(c=>c.value));
   const deadlineFrom = document.getElementById('fd-deadline-from')?.value || '';
   const search     = (document.getElementById('fd-search')?.value || '').trim().toLowerCase();
 
@@ -691,8 +695,8 @@ function applyCardFilters(){
     const d = card.dataset.deadline || '';
     const s = card.dataset.search || '';
 
-    const okB = !bailleurs.length  || bailleurs.includes(b);
-    const okP = !pertinences.length|| pertinences.includes(p);
+    const okB = !offeredB.has(b) || bailleurs.includes(b);
+    const okP = !offeredP.has(p) || pertinences.includes(p);
     const okD = !deadlineFrom      || d >= deadlineFrom;
     const okS = !search            || s.includes(search);
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="/static/favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" href="/static/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <title>Veille AO — Assemblage ingénierie</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -939,6 +939,11 @@ function buildStatPills(data){
 
 // ── Filters ────────────────────────────────────────────────────────────────
 function checked(cls){ return [...document.querySelectorAll(`.${cls}:checked`)].map(c=>c.value) }
+// Toutes les valeurs proposées dans une section (cochées ou non).
+function offered(cls){ return new Set([...document.querySelectorAll(`.${cls}`)].map(c=>c.value)) }
+// Une valeur proposée mais décochée exclut l'AO — y compris quand toute la
+// section est décochée. Une valeur sans case (cas imprévu) ne filtre pas.
+function isOff(offeredSet, checkedList, value){ return offeredSet.has(value) && !checkedList.includes(value) }
 
 function applyFilters(){
   const bailleurs   = checked('f-bailleur');
@@ -955,33 +960,30 @@ function applyFilters(){
   const today       = new Date().toISOString().slice(0,10);
 
   const typeAbbrs=types;
+  const offeredBailleurs   = offered('f-bailleur');
+  const offeredLangues     = offered('f-langue');
+  const offeredPertinences = offered('f-pertinence');
+  const offeredTypes       = offered('f-type');
 
   // 1er passage : tous les filtres sauf exclusion
+  // Règle commune : une case décochée exclut ses AO, même si toute la section
+  // est décochée (« tout décocher » affiche donc bien zéro AO).
   const preFiltered = allNotices.filter(n=>{
     // Tri
-    if(triageVals.length < 4){
-      const state = triage.get(n.id) || '__untriaged__';
-      if(!triageVals.includes(state)) return false;
-    }
-    // État de publication
-    if(pubStates.length < 2 && pubStates.length > 0){
-      const pub = n.date_publication || '';
-      const isAvenir = pub > today;
-      if(pubStates.includes('avenir') && !isAvenir) return false;
-      if(pubStates.includes('publie') && isAvenir) return false;
-    }
+    const state = triage.get(n.id) || '__untriaged__';
+    if(!triageVals.includes(state)) return false;
+    // État de publication (publié ≤ aujourd'hui, à venir > aujourd'hui)
+    const isAvenir = (n.date_publication || '') > today;
+    if(!pubStates.includes(isAvenir ? 'avenir' : 'publie')) return false;
     // Bailleur
-    if(bailleurs.length && !bailleurs.includes(n.bailleur)) return false;
+    if(isOff(offeredBailleurs, bailleurs, n.bailleur)) return false;
     // Langue
-    if(langues.length && !langues.includes(n.langue)) return false;
+    if(isOff(offeredLangues, langues, n.langue)) return false;
     // Pertinence
-    if(pertinences.length && !pertinences.includes(n.pertinence)) return false;
+    if(isOff(offeredPertinences, pertinences, n.pertinence)) return false;
     // Type (bailleur||abbr) — notices sans type_avis passent toujours
-    if(typeAbbrs.length){
-      const typeAbbr = abbrType(n.type_avis||'');
-      const typeKey  = n.bailleur + '||' + typeAbbr;
-      if(typeAbbr && !typeAbbrs.includes(typeKey)) return false;
-    }
+    const typeAbbr = abbrType(n.type_avis||'');
+    if(typeAbbr && isOff(offeredTypes, typeAbbrs, n.bailleur + '||' + typeAbbr)) return false;
     // Filtre spécial BM : Individual Consultant (basé sur mode_selection)
     if(n.bailleur === 'Banque Mondiale'){
       const isIC = (n.mode_selection || '').toLowerCase().includes('individual consultant');
