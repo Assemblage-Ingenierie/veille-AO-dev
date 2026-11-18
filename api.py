@@ -89,6 +89,13 @@ async def page_index():
     return _page("index")
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Icône d'onglet (sigle .A rouge) — demandée d'office par les navigateurs."""
+    return FileResponse(str(PAGES_DIR / "favicon.ico"), media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=604800"})
+
+
 @app.get("/{name}", include_in_schema=False)
 async def page_named(name: str):
     if name not in {"analyse", "pertinentes", "params", "admin", "login"}:
