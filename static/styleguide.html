@@ -78,10 +78,7 @@
     <section class="panel" aria-label="Filtres">
       <div class="panel-head">
         <span class="panel-title">Filtres</span>
-        <div class="sg-row">
-          <input class="input" type="search" placeholder="Rechercher un titre, un pays…" style="width:240px">
-          <button class="btn btn-ghost btn-sm" type="button"><svg class="icon"><use href="#i-reset"/></svg>Réinitialiser</button>
-        </div>
+        <button class="btn btn-ghost btn-sm" type="button"><svg class="icon"><use href="#i-reset"/></svg>Réinitialiser les filtres</button>
       </div>
       <div class="panel-body">
         <div class="filter-row">
@@ -121,6 +118,33 @@
             <input class="date-input" type="date" aria-label="Au">
           </div>
         </div>
+      </div>
+      <!-- Mots-clés partagés : Paramètres (inclusion) et Exclusion -->
+      <div class="panel-body">
+        <div class="filter-row">
+          <span class="filter-label">Paramètres</span>
+          <div class="kw-line">
+            <input class="input kw-input" type="text" placeholder="Ajouter un mot-clé…" aria-label="Ajouter un mot-clé" data-target="kw-include">
+            <div class="chip-group" id="kw-include">
+              <span class="kw-chip">structure<button type="button" aria-label="Retirer structure">×</button></span>
+              <span class="kw-chip">parasismique<button type="button" aria-label="Retirer parasismique">×</button></span>
+              <span class="kw-chip">maîtrise d'œuvre<button type="button" aria-label="Retirer maîtrise d'œuvre">×</button></span>
+            </div>
+            <button class="btn btn-ghost btn-sm kw-reset" type="button">Réinitialiser</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Exclusion <span class="num" style="font-weight:400">(2)</span></span>
+          <div class="kw-line">
+            <input class="input kw-input" type="text" placeholder="Exclure un mot-clé…" aria-label="Exclure un mot-clé" data-target="kw-exclude">
+            <div class="chip-group" id="kw-exclude">
+              <span class="kw-chip kw-exclude">fourniture<button type="button" aria-label="Retirer fourniture">×</button></span>
+              <span class="kw-chip kw-exclude">véhicules<button type="button" aria-label="Retirer véhicules">×</button></span>
+            </div>
+            <button class="btn btn-ghost btn-sm kw-reset" type="button">Réinitialiser</button>
+          </div>
+        </div>
+        <p class="sg-caption" style="margin:var(--sp-2) 0 0">Listes communes à toute l'équipe. Entrée pour ajouter, × pour retirer. « Paramètres » ne garde que les AO contenant au moins un mot-clé ; « Exclusion » masque ceux qui en contiennent un.</p>
       </div>
     </section>
 
@@ -272,6 +296,25 @@
 <img class="ai-watermark" src="/static/sigle_A_rouge_HD.png" alt="" aria-hidden="true">
 
 <script>
+// Démonstration des mots-clés (local, sans enregistrement).
+document.addEventListener('click', ev => {
+  const x = ev.target.closest('.kw-chip button');
+  if (x) x.parentElement.remove();
+  const r = ev.target.closest('.kw-reset');
+  if (r) r.parentElement.querySelector('.chip-group').innerHTML = '';
+});
+document.querySelectorAll('.kw-input').forEach(inp => inp.addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter' || !inp.value.trim()) return;
+  const chip = document.createElement('span');
+  chip.className = 'kw-chip' + (inp.dataset.target === 'kw-exclude' ? ' kw-exclude' : '');
+  chip.textContent = inp.value.trim();
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Retirer ' + inp.value.trim());
+  chip.append(b);
+  document.getElementById(inp.dataset.target).append(chip);
+  inp.value = '';
+}));
+
 // Démonstration de l'interrupteur à 2 positions (aucun appel réseau).
 document.querySelectorAll('.tri-switch').forEach(sw => {
   sw.addEventListener('click', ev => {
