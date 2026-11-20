@@ -70,25 +70,27 @@ a:hover { color: var(--ai-rouge); }
 .app-header-actions { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); }
 .hamburger { display: none; background: none; border: 0; padding: var(--sp-2); cursor: pointer; color: var(--ai-violet); }
 
-/* Barre latérale violet sombre (variante par défaut des outils métier) */
-.sidebar { grid-area: sidebar; background: var(--ai-violet); color: var(--ai-blanc);
+/* Barre latérale claire (gris clair, texte violet, lien actif repéré en rouge) */
+.sidebar { grid-area: sidebar; background: var(--ai-gris); color: var(--ai-violet);
+  border-right: var(--line);
   display: flex; flex-direction: column; position: sticky; top: var(--header-h);
   height: calc(100vh - var(--header-h)); overflow-y: auto; }
 .sidebar-label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-  color: rgba(255,255,255,.55); padding: var(--sp-5) var(--sp-5) var(--sp-2); }
+  color: var(--ai-noir70); padding: var(--sp-5) var(--sp-5) var(--sp-2); }
 .sidebar-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
-  padding: 11px var(--sp-5); color: var(--ai-blanc); text-decoration: none; font-size: 14px;
+  padding: 11px var(--sp-5); color: var(--ai-violet); text-decoration: none; font-size: 14px;
   border-left: 3px solid transparent; }
-.sidebar-nav:hover { color: var(--ai-blanc); background: rgba(255,255,255,.06); }
-.sidebar-nav.active { font-weight: 600; border-left-color: var(--ai-blanc); background: rgba(255,255,255,.1); }
+.sidebar-nav:hover { color: var(--ai-violet); background: rgba(255,255,255,.45); }
+.sidebar-nav.active { font-weight: 600; color: var(--ai-rouge); border-left-color: var(--ai-rouge); background: var(--ai-blanc); }
 .sidebar-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--ai-rouge);
   color: var(--ai-blanc); font-size: var(--fs-xs); font-weight: 700; display: inline-flex;
   align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
 .sidebar-spacer { flex: 1; }
-.sidebar-user { padding: var(--sp-4) var(--sp-5); border-top: 1px solid rgba(255,255,255,.15); }
+.sidebar-user { padding: var(--sp-4) var(--sp-5); border-top: 1px dotted var(--ai-rouge); color: var(--ai-violet); }
 .sidebar-user-label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-  color: rgba(255,255,255,.55); margin-bottom: var(--sp-1); }
-.sidebar-user, .sidebar-user * { color: var(--ai-blanc) !important; }
+  color: var(--ai-noir70); margin-bottom: var(--sp-1); }
+.sidebar-user a { color: var(--ai-violet); }
+.sidebar-user a:hover { color: var(--ai-rouge); }
 
 /* Zone de contenu : papier millimétré très léger (gris de la charte) */
 .app-content { grid-area: content; min-width: 0; padding: var(--sp-5) var(--sp-6);
