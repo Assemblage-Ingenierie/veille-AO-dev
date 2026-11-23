@@ -131,6 +131,7 @@
           <label class="chip"><input type="checkbox" class="f-bailleur" value="AFD" checked>AFD</label>
           <label class="chip"><input type="checkbox" class="f-bailleur" value="TED" checked>UE (TED)</label>
           <label class="chip"><input type="checkbox" class="f-bailleur" value="Expertise France" checked>Expertise France</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="UNGM" checked>ONU (UNGM)</label>
         </div>
       </div>
       <div class="filter-row">
@@ -587,9 +588,9 @@ function buildTypeFilters(notices){
     byBailleur[b].add(abbr);
   }
 
-  const ORDER    = ['Banque Mondiale','PNUD','GIZ','BERD','TED','Expertise France'];
-  const SHORT    = {'Banque Mondiale':'BM','PNUD':'PNUD','GIZ':'GIZ','BERD':'BERD','TED':'TED','Expertise France':'EF'};
-  const COLCLS   = {'Banque Mondiale':'bm','PNUD':'pnud','GIZ':'giz','BERD':'berd','TED':'ted','Expertise France':'ef'};
+  const ORDER    = ['Banque Mondiale','PNUD','GIZ','BERD','TED','Expertise France','UNGM'];
+  const SHORT    = {'Banque Mondiale':'BM','PNUD':'PNUD','GIZ':'GIZ','BERD':'BERD','TED':'TED','Expertise France':'EF','UNGM':'UNGM'};
+  const COLCLS   = {'Banque Mondiale':'bm','PNUD':'pnud','GIZ':'giz','BERD':'berd','TED':'ted','Expertise France':'ef','UNGM':'ungm'};
   const KNOWN    = ['REOI','GPN','RFP','ITB','CFP','RFB','EOI','RFQ','IC','LTA','OTHER'];
 
   const sortAbbrs = arr => [...arr].sort((a,z)=>{

@@ -24,7 +24,12 @@ SOURCES = {
     "afd":  ("AFD",              "sources.afd",              "fetch_afd",              False),
     "ted":  ("TED",              "sources.ted",              "fetch_ted",              True),
     "ef":   ("Expertise France", "sources.expertise_france", "fetch_expertise_france", False),
+    "ungm": ("UNGM",             "sources.ungm",             "fetch_ungm",             False),
 }
+
+# Sources qui savent ne demander que les avis publiés depuis la dernière lecture
+# réussie : leur fonction de collecte reçoit since=<datetime> (None = tout relire).
+INCREMENTAL = {"ungm"}
 
 
 def list_sources() -> list:
@@ -36,11 +41,12 @@ def run_source(key: str, triggered_by: "str | None" = None) -> dict:
         raise KeyError(key)
     label, module, fn_name, refresh = SOURCES[key]
     sb = supa.service()
+    since = database.last_success(key, sb=sb) if key in INCREMENTAL else None
     run_id = database.start_run(key, triggered_by, sb=sb)
     t0 = time.time()
     try:
         fetch = getattr(importlib.import_module(module), fn_name)
-        notices = fetch()
+        notices = fetch(since=since) if key in INCREMENTAL else fetch()
         written = database.save_notices(notices, refresh=refresh, sb=sb)
         expired = database.mark_expired(sb=sb)
         database.finish_run(run_id, fetched=len(notices), inserted=written, sb=sb)

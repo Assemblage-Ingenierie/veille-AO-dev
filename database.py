@@ -241,6 +241,14 @@ def start_run(source: str, triggered_by: "str | None", sb: "supa.Client | None" 
     return rows[0]["id"]
 
 
+def last_success(source: str, sb: "supa.Client | None" = None) -> "datetime | None":
+    """Début de la dernière collecte réussie (terminée, sans erreur) de cette source."""
+    rows = (sb or supa.service()).select("veilleao_collect_runs", {
+        "select": "started_at", "source": eq(source), "finished_at": "not.is.null",
+        "error": "is.null", "order": "started_at.desc", "limit": 1})
+    return datetime.fromisoformat(rows[0]["started_at"]) if rows else None
+
+
 def finish_run(run_id: int, fetched: "int | None" = None, inserted: "int | None" = None,
                error: "str | None" = None, sb: "supa.Client | None" = None) -> None:
     (sb or supa.service()).update("veilleao_collect_runs", {"id": eq(run_id)},
