@@ -105,3 +105,9 @@ def test_collecteur_transmet_la_derniere_lecture(monkeypatch):
     monkeypatch.setattr(ungm, "fetch_ungm", lambda since=None: seen.update(since=since) or [])
     res = collector.run_source("ungm")
     assert res["ok"] and seen == {"source": "ungm", "since": last}
+
+
+def test_titre_nettoye_des_lignes_decoratives():
+    rows = ungm.parse_rows(_row("201", "RFP 12 " + "=" * 80 + " Office renovation", "WHO", "Request for proposal", "Kenya"))
+    n = ungm._to_notice(rows[0])
+    assert n["titre"] == "RFP 12 Office renovation"

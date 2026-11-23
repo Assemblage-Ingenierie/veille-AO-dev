@@ -106,8 +106,11 @@ def parse_rows(fragment: str) -> list:
     return rows
 
 
+_FILLER_RE = re.compile(r"([=\-_*~#.])\1{3,}")   # « ====== », « ------ »… (mise en forme)
+
+
 def _to_notice(row: dict) -> "dict | None":
-    titre = row["titre"]
+    titre = re.sub(r"\s+", " ", _FILLER_RE.sub(" ", row["titre"])).strip()
     if not titre:
         return None
     agence = row["agence"].strip()

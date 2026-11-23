@@ -28,13 +28,17 @@
 
 .date-range { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; font-size: var(--fs-sm); color: var(--ai-noir70); }
 
+/* Page Veille : filtres et tableau occupent toute la largeur disponible */
+.app-content > * { max-width: none; }
+
 /* Tableau des AO : hauteur bornée pour garder l'en-tête visible */
 #table-panel .table-wrap { max-height: calc(100vh - var(--header-h) - 96px); }
 #notices-table .titre-line { display: flex; align-items: baseline; gap: 6px; }
 #notices-table .titre-line .gauge { flex-shrink: 0; }
-#notices-table .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
+/* La ligne « projet / agence » s'adapte à la colonne au lieu de l'élargir */
+#notices-table .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 0; min-width: 100%; }
 #notices-table td.col-tri { padding-left: var(--sp-2); padding-right: var(--sp-2); }
-#notices-table td.titre { min-width: 280px; }
+#notices-table td.titre { min-width: 280px; overflow-wrap: anywhere; }  /* coupe les chaînes sans espace */
 #notices-table td.c-type, #notices-table td.c-mode, #notices-table td.c-secteur {
   max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #notices-table td.c-lien { padding: 0 var(--sp-1); }
@@ -410,7 +414,14 @@ const TYPE_FULL_NAMES = {
   'brin':             "Avis de modification de contrat",
 };
 
-function typeLabel(abbr){
+// Libellés propres à un bailleur (prioritaires sur TYPE_FULL_NAMES)
+const TYPE_LABELS_BY_BAILLEUR = {
+  'UNGM': { 'RFP': 'Demande de propositions', 'EOI': "AMI (appel à manifestation d'intérêt)" },
+};
+
+function typeLabel(abbr, bailleur){
+  const own = (TYPE_LABELS_BY_BAILLEUR[bailleur] || {})[abbr];
+  if(own) return own;
   const full = TYPE_FULL_NAMES[abbr];
   return full ? `${full} (${abbr})` : abbr;
 }
@@ -563,9 +574,7 @@ const TYPE_DEFAULT_OFF = new Set([
   'PNUD||ITB', 'PNUD||CFP', 'PNUD||EOI', 'PNUD||LTA',
   // GIZ — pas de marché attribué ni appel d'offres travaux
   'GIZ||VgVVergebener Auftrag', 'GIZ||VOB/A/Ausschreibung',
-  // BERD — pas d'invitation à soumissionner (1 ou 2 tours), pas de liste/avis de présélection, ni GPN
-  'BERD||Invitation For Tenders Single',
-  'BERD||Invitation For Tenders Two Stage',
+  // BERD — pas de liste/avis de présélection, ni GPN (invitations à soumissionner cochées)
   'BERD||Shortlist Notice',
   'BERD||Notice of Prequalified Participants',
   'BERD||GPN',
@@ -615,7 +624,7 @@ function buildTypeFilters(notices){
       }
       return `<label class="chip">
         <input type="checkbox" class="f-type" value="${esc(key)}"${chk}>
-        ${esc(typeLabel(abbr))}
+        ${esc(typeLabel(abbr, b))}
       </label>`;
     }).join('');
 
