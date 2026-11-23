@@ -249,6 +249,8 @@ function renderCard(n){
     <div class="title">${esc(n.titre)}
       ${n.projet && n.projet!==n.titre ? `<small>${esc(n.projet)}</small>` : ''}</div>
     <div class="actions">
+      <button class="btn btn-danger btn-sm" type="button" onclick="unmarkPertinent('${esc(n.id)}', this)"
+        title="Retirer cette offre des pertinentes : elle repasse en pré-tri dans Analyse AO">Retirer des pertinentes</button>
       ${n.lien ? `<a href="${esc(n.lien)}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">${ICON('ext')}Voir l'avis</a>` : ''}
     </div>
   </div>
@@ -326,6 +328,32 @@ async function fetchDetail(noticeId, force=false){
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+// ── Retrait des pertinentes : l'offre repasse en « Pré-tri » (Analyse AO) ────
+async function unmarkPertinent(noticeId, button){
+  if(!confirm("Retirer cette offre des pertinentes ?\nElle repassera en « Pré-tri » et réapparaîtra dans Analyse AO.")) return;
+  button.disabled = true;
+  try{
+    const r = await fetch(`/api/triage/${encodeURIComponent(noticeId)}`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({state: 'pre-tri'})
+    });
+    if(!r.ok) throw new Error((await r.json()).error || ('HTTP ' + r.status));
+    triageMap.set(noticeId, 'pre-tri');
+    const card = document.getElementById(`card-${noticeId}`);
+    if(card) card.remove();
+    const left = document.querySelectorAll('.ao-card').length;
+    document.getElementById('count-chip').textContent = left;
+    if(!left){
+      document.getElementById('cards-container').innerHTML = `
+        <div class="empty-page">Aucune offre marquée comme pertinente.<br>
+        Marquez des offres « Pertinent » depuis <a href="/analyse">Analyse AO</a>.</div>`;
+    }
+  }catch(e){
+    button.disabled = false;
+    alert('Retrait impossible : ' + e.message);
+  }
+}
+
 async function init(){
   await Promise.all([loadTriage(), loadTeam(), loadAssignments()]);
 
