@@ -241,6 +241,7 @@ a:hover { color: var(--ai-rouge); }
 .tri-switch button:focus-visible { box-shadow: inset 0 0 0 2px var(--ai-violet); }
 .tri-switch .tri-np[aria-pressed="true"]  { background: var(--ai-noir70); color: var(--ai-blanc); }
 .tri-switch .tri-pre[aria-pressed="true"] { background: var(--ai-violet); color: var(--ai-blanc); }
+.tri-switch .tri-pert[aria-pressed="true"] { background: var(--ai-rouge); color: var(--ai-blanc); }
 /* Variante compacte : icônes seules (libellé en infobulle + aria-label) */
 .tri-switch.compact button { width: var(--control-h); padding: 0; justify-content: center; }
 .tri-switch.compact .label { display: none; }
@@ -259,6 +260,11 @@ a:hover { color: var(--ai-rouge); }
   text-transform: uppercase; line-height: 18px; }
 .spec dd { color: var(--ai-noir); font-variant-numeric: tabular-nums; }
 .ao-card-content { padding: var(--sp-3) var(--sp-4); }
+.ao-card.triage-pre-tri .ao-card-head { box-shadow: inset 3px 0 0 var(--ai-violet); }
+.ao-card.triage-pertinent .ao-card-head { box-shadow: inset 3px 0 0 var(--ai-rouge); }
+.ao-card.triage-non-pertinent .ao-card-head { box-shadow: inset 3px 0 0 var(--ai-noir70); }
+.ao-card-foot { padding: var(--sp-3) var(--sp-4); border-top: 1px dotted var(--ai-trait); }
+.section-label + * { margin-top: 0; }
 .section-label { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
   color: var(--ai-rouge); margin-bottom: var(--sp-1); }
 .ao-card-content p { font-size: var(--fs-md); line-height: 1.6; }
