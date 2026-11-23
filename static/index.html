@@ -338,7 +338,7 @@ function gauge(p){
 function triageCell(n, ts){
   const id = esc(n.id);
   if(ts === 'pertinent'){
-    return `<span class="tag tag-pertinent" title="${esc(triageTitle(n.id,'Pertinent','pertinent'))} · modifiable depuis Offres pertinentes"><svg class="icon" style="width:12px;height:12px"><use href="#i-star"/></svg>Pertinent</span>`;
+    return `<span class="tag tag-pertinent" title="${esc(triageTitle(n.id,'Pertinent','pertinent'))}"><svg class="icon" style="width:12px;height:12px"><use href="#i-star"/></svg>Pertinent</span>`;
   }
   const np = ts === 'non-pertinent', pre = ts === 'pre-tri';
   return `<div class="tri-switch" role="group" aria-label="Tri de l'AO">
