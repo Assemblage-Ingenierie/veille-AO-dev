@@ -9,6 +9,7 @@ PNUD : scraping HTML view_notice.cfm (rendu serveur)
 GIZ  : page AO → onglet Teilnahmeunterlagen → fichier TOR (PDF/Word) → extraction
 BERD : scraping ecepp.ebrd.com/delta/viewNotice.html
 AFD  : page afd.dgmarket.com/tender/{id} → téléchargement document (PDF/Word) → extraction
+UNGM : page publique ungm.org/Public/Notice/{id} (description ; documents réservés aux inscrits)
 """
 import io
 import logging
@@ -1144,6 +1145,47 @@ def _fetch_afd(notice_id: str, lien: str) -> dict:
     return result
 
 
+# ── UNGM ──────────────────────────────────────────────────────────────────────
+
+def _fetch_ungm(lien: str) -> dict:
+    """Page publique ungm.org/Public/Notice/{id} : description et contact.
+    Les documents ne sont accessibles qu'aux fournisseurs inscrits sur UNGM :
+    on renvoie un lien vers l'avis à la place."""
+    if not lien:
+        return {}
+    result = {}
+    try:
+        soup = _soup(lien, timeout=30)
+        box = soup.find(id="noticeDetail") or soup
+        for row in box.select(".row"):
+            label = row.find(class_="label")
+            value = row.find(class_="value")
+            if not label or not value:
+                continue
+            key = label.get_text(strip=True).lower()
+            val = value.get_text(" ", strip=True)
+            if key.startswith("reference"):
+                result["reference"] = val
+            elif key.startswith("deadline"):
+                result["deadline_detail"] = val
+            elif key.startswith("published"):
+                result["published_detail"] = val
+        for item in box.select(".ungm-list-item"):
+            title = item.find(class_="title")
+            if title and title.get_text(strip=True).lower() == "description":
+                title.extract()
+                result["description"] = item.get_text("\n", strip=True)[:3000]
+                break
+        contact = box.select_one("#contactDetails .title")
+        if contact:
+            result["contact_email"] = contact.get_text(strip=True)
+        result["documents"] = [{"name": "Documents de l'avis sur UNGM (compte fournisseur requis)",
+                                "url": lien}]
+    except Exception as e:
+        log.warning(f"UNGM detail scrape failed ({lien}): {e}")
+    return result
+
+
 # ── Dispatcher public ──────────────────────────────────────────────────────────
 
 def fetch_detail(notice_id: str, lien: str, bailleur: str,
@@ -1163,6 +1205,8 @@ def fetch_detail(notice_id: str, lien: str, bailleur: str,
             return _fetch_berd(notice_id, lien)
         elif bailleur == "AFD":
             return _fetch_afd(notice_id, lien)
+        elif bailleur == "UNGM":
+            return _fetch_ungm(lien)
         else:
             return {"error": f"Bailleur inconnu : {bailleur}"}
     except Exception as e:

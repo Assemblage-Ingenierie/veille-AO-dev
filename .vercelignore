@@ -1,0 +1,20 @@
+# Jamais envoyé à Vercel
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.exe
+recovery_data.json
+server_log.txt
+*.log
+
+# Outils locaux (migration, tests, schéma SQL appliqué via Supabase)
+scripts/
+supabase/
+tests/
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.idea/

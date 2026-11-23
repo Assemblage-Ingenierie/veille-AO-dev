@@ -3,496 +3,255 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/static/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <title>Veille AO — Assemblage ingénierie</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="/static/auth.js"></script>
 <style>
-:root {
-  /* Palette Assemblage ingénierie */
-  --ai-rouge:       #E30513;
-  --ai-violet:      #30323E;
-  --ai-gris:        #DFE4E8;
-  --ai-rouge-clair: #F9E1E3;
-  --ai-gris-clair:  #F2F2F2;
-  --ai-noir70:      #4D4D4D;
-  /* Tokens layout */
-  --primary:      #30323E;
-  --accent:       #30323E;
-  --accent-light: #DFE4E8;
-  --bg:           #F2F2F2;
-  --surface:      #FFFFFF;
-  --border:       #DFE4E8;
-  --text:         #000000;
-  --text-muted:   #4D4D4D;
-  --radius:       4px;
-  --shadow:       0 1px 3px rgba(0,0,0,.08);
+/* ── Spécifique à la page Veille ── */
+
+/* Filtre « Type AO » : une colonne par bailleur */
+.type-table { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--sp-3) var(--sp-4); width: 100%; }
+.type-col-head { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ai-violet); padding: 4px 0; margin-bottom: 6px; border-bottom: 1px solid var(--ai-trait);
+  cursor: pointer; user-select: none; }
+.type-col-head:hover { color: var(--ai-rouge); }
+.type-col .chip { display: flex; align-items: flex-start; height: auto; min-height: 28px; padding: 5px 8px;
+  white-space: normal; line-height: 1.3; margin-bottom: 4px; }
+.type-col .chip input { margin-top: 2px; }
+
+.date-range { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; font-size: var(--fs-sm); color: var(--ai-noir70); }
+
+/* Page Veille : filtres et tableau occupent toute la largeur disponible */
+.app-content > * { max-width: none; }
+
+/* Tableau des AO : hauteur bornée pour garder l'en-tête visible */
+#table-panel .table-wrap { max-height: calc(100vh - var(--header-h) - 96px); }
+#notices-table .titre-line { display: flex; align-items: baseline; gap: 6px; }
+#notices-table .titre-line .gauge { flex-shrink: 0; }
+/* La ligne « projet / agence » s'adapte à la colonne au lieu de l'élargir */
+#notices-table .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 0; min-width: 100%; }
+#notices-table td.col-tri { padding-left: var(--sp-2); padding-right: var(--sp-2); }
+#notices-table td.titre { min-width: 280px; overflow-wrap: anywhere; }  /* coupe les chaînes sans espace */
+#notices-table td.c-type, #notices-table td.c-mode, #notices-table td.c-secteur {
+  max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#notices-table td.c-lien { padding: 0 var(--sp-1); }
+
+/* Colonnes masquées selon la largeur (Mode, Langue, Type, Secteur, Lien, Publication, Pays) */
+@media (max-width: 1500px) { #notices-table .c-mode, #notices-table .c-langue { display: none; } }
+@media (max-width: 900px)  { #notices-table .c-type { display: none; } }
+@media (max-width: 768px)  {
+  #notices-table .c-secteur, #notices-table .c-lien { display: none; }
+  #table-panel .table-wrap { max-height: calc(100vh - var(--header-h) - 80px); }
+  .titre a { text-decoration: underline; }
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Open Sans',-apple-system,BlinkMacSystemFont,sans-serif;
-  background:var(--bg);color:var(--text);font-size:13.5px;line-height:1.5}
-
-/* ── Sidebar ── */
-.layout-wrapper{display:flex;min-height:100vh}
-.sidebar{width:175px;flex-shrink:0;background:var(--ai-gris);
-  position:sticky;top:0;height:100vh;overflow-y:auto;
-  display:flex;flex-direction:column;
-  border-right:1px solid #CDD2D6}
-.sidebar-brand{padding:1rem 1rem .85rem;border-bottom:1px solid #CDD2D6;
-  display:flex;flex-direction:column;gap:.45rem}
-.sidebar-brand img{width:100%;height:auto;max-width:130px}
-.sidebar-brand-sub{font-size:.68rem;color:var(--ai-noir70);line-height:1.35}
-.sidebar-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
-  letter-spacing:.08em;color:var(--ai-noir70);padding:.85rem 1rem .25rem}
-.sidebar-nav{display:flex;align-items:center;
-  padding:.6rem 1rem;font-size:.82rem;font-weight:600;
-  color:var(--ai-violet);text-decoration:none;
-  transition:background .12s;border-left:3px solid transparent;line-height:1.2}
-.sidebar-nav:hover{background:rgba(48,50,62,.1)}
-.sidebar-nav.active{color:var(--ai-rouge);border-left-color:var(--ai-rouge);
-  background:rgba(227,5,19,.06)}
-.sidebar-spacer{flex:1}
-.sidebar-actions{padding:.8rem 1rem;border-top:1px solid #CDD2D6;
-  display:flex;flex-direction:column;gap:.5rem}
-.layout-content{flex:1;min-width:0}
-.last-update{font-size:.71rem;color:var(--ai-noir70);line-height:1.4}
-#btn-refresh{display:flex;align-items:center;justify-content:center;gap:.4rem;
-  padding:.5rem .7rem;width:100%;
-  background:var(--ai-rouge);border:none;color:#fff;
-  border-radius:var(--radius);cursor:pointer;font-size:.78rem;font-weight:600;
-  font-family:inherit;transition:background .15s}
-#btn-refresh:hover{background:#c00411}
-#btn-refresh:disabled{opacity:.5;cursor:not-allowed}
-.spinner{display:inline-block;width:13px;height:13px;
-  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
-  border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* ── Layout ── */
-.container{max-width:1900px;margin:0 auto;padding:.9rem 1rem}
-
-/* ── Filter panel ── */
-.panel{background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);padding:.9rem 1.1rem;margin-bottom:.9rem;
-  box-shadow:var(--shadow)}
-.panel-section{margin-bottom:.6rem}
-.panel-section:last-child{margin-bottom:0}
-.filter-row{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;
-  margin-bottom:.35rem}
-.filter-row:last-child{margin-bottom:0}
-.filter-label{font-weight:700;min-width:90px;font-size:.71rem;
-  text-transform:uppercase;letter-spacing:.06em;color:var(--ai-rouge);flex-shrink:0}
-.filter-label[data-toggle]{cursor:pointer;user-select:none}
-.filter-label[data-toggle]:hover{opacity:.75;text-decoration:underline dotted 1px}
-.chip-group{display:flex;flex-wrap:wrap;gap:.3rem}
-.chip{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .5rem;
-  border:1px solid var(--border);border-radius:3px;cursor:pointer;
-  font-size:.78rem;transition:all .12s;white-space:nowrap;user-select:none;font-family:inherit}
-.chip input{width:13px;height:13px;accent-color:var(--ai-violet);cursor:pointer}
-.chip:has(input:checked){border-color:var(--ai-violet);background:var(--ai-gris);color:var(--ai-violet)}
-.chip:hover{border-color:var(--ai-violet);background:var(--ai-gris)}
-
-hr.divider{border:none;border-top:1px dashed var(--ai-rouge);margin:.55rem 0;opacity:.25}
-
-/* Date range */
-.date-range{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
-.date-input{padding:.22rem .45rem;border:1px solid var(--border);
-  border-radius:3px;font-size:.78rem;color:var(--text);font-family:inherit}
-.date-input:focus{outline:none;border-color:var(--ai-violet);
-  box-shadow:0 0 0 2px rgba(48,50,62,.12)}
-
-/* Paramètres — keyword chips */
-.params-input{padding:.3rem .65rem;border:1px solid var(--border);
-  border-radius:3px;font-size:.8rem;font-family:inherit;color:var(--text);width:240px}
-.params-input:focus{outline:none;border-color:var(--ai-violet);
-  box-shadow:0 0 0 2px rgba(48,50,62,.1)}
-.params-chips{display:flex;flex-wrap:wrap;gap:.3rem;align-items:center}
-.params-chip{display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .5rem;
-  background:var(--ai-violet);color:#fff;border-radius:3px;font-size:.78rem;font-weight:600}
-.params-chip-remove{background:none;border:none;color:rgba(255,255,255,.7);
-  cursor:pointer;font-size:.85rem;line-height:1;padding:0 1px;font-family:inherit}
-.params-chip-remove:hover{color:#fff}
-.params-chip.exclude{background:var(--ai-rouge)}
-.btn{padding:.32rem .85rem;border:none;border-radius:3px;cursor:pointer;
-  font-size:.82rem;font-weight:600;transition:all .12s;font-family:inherit}
-.btn-primary{background:var(--ai-rouge);color:#fff}
-.btn-primary:hover{background:#c00411}
-.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
-.btn-outline:hover{border-color:var(--ai-violet);color:var(--ai-violet)}
-
-/* Stats bar */
-.stats-bar{display:flex;align-items:center;justify-content:space-between;
-  padding:.3rem 0 .55rem;font-size:.82rem;color:var(--text-muted)}
-.count-badge{font-weight:700;color:var(--text);font-size:.95rem}
-.stat-pills{display:flex;gap:.5rem;flex-wrap:wrap}
-.stat-pill{background:var(--ai-gris);color:var(--ai-violet);
-  padding:.1rem .45rem;border-radius:2px;font-size:.73rem;font-weight:700}
-.stat-pill.giz {background:var(--ai-gris-clair);color:var(--ai-violet);border:1px solid var(--ai-gris)}
-.stat-pill.pnud{background:var(--ai-violet);color:#fff}
-.stat-pill.berd{background:var(--ai-noir70);color:#fff}
-.stat-pill.afd {background:#fff;color:var(--ai-violet);border:1px solid var(--ai-violet)}
-.stat-pill.ted {background:#fff;color:var(--ai-noir70);border:1px solid var(--ai-noir70)}
-.stat-pill.ef  {background:var(--ai-rouge-clair);color:var(--ai-rouge);border:1px solid var(--ai-rouge)}
-.errors-badge{background:var(--ai-rouge-clair);color:var(--ai-rouge);
-  border:1px solid var(--ai-rouge);padding:.1rem .5rem;
-  border-radius:2px;font-size:.73rem;font-weight:700}
-
-/* ── Table ── */
-.table-wrap{background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);overflow:auto;box-shadow:var(--shadow);
-  max-height:calc(100vh - 380px)}
-table{width:100%;border-collapse:collapse;font-size:.8rem}
-thead{position:sticky;top:0;z-index:10}
-th{padding:.5rem .7rem;text-align:left;background:var(--ai-violet);color:#fff;
-  white-space:nowrap;cursor:pointer;user-select:none;font-weight:600;
-  border-right:1px solid rgba(255,255,255,.1);font-size:.74rem;
-  text-transform:uppercase;letter-spacing:.04em;font-family:inherit}
-th:last-child{border-right:none}
-th:hover{background:#3d4050}
-th.sorted-asc::after {content:" ▲";font-size:.65rem;opacity:.9}
-th.sorted-desc::after{content:" ▼";font-size:.65rem;opacity:.9}
-td{padding:.42rem .7rem;border-bottom:1px solid var(--ai-gris-clair);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:rgba(227,5,19,.04) !important}
-
-/* Pertinence — row backgrounds calés sur la palette charte */
-tr.haute   td{background:var(--ai-rouge-clair)}
-tr.haute:hover   td{background:#f5cdd0 !important}
-tr.moyenne td{background:var(--ai-gris-clair)}
-tr.moyenne:hover td{background:#e6e6e6 !important}
-
-/* Bailleur badges — palette charte */
-.badge{display:inline-block;padding:.1rem .42rem;border-radius:2px;
-  font-size:.71rem;font-weight:700;white-space:nowrap}
-.badge-bm    {background:var(--ai-gris);      color:var(--ai-violet)}
-.badge-pnud  {background:var(--ai-violet);    color:#fff}
-.badge-giz   {background:var(--ai-gris-clair);color:var(--ai-violet);border:1px solid var(--ai-gris)}
-.badge-berd  {background:var(--ai-noir70);    color:#fff}
-.badge-afd   {background:#fff;color:var(--ai-violet);border:1px solid var(--ai-violet)}
-.badge-ted   {background:#fff;color:var(--ai-noir70);border:1px solid var(--ai-noir70)}
-.badge-ef    {background:var(--ai-rouge-clair);color:var(--ai-rouge);border:1px solid var(--ai-rouge)}
-.badge-unknown{background:var(--ai-gris-clair);color:var(--ai-noir70)}
-
-/* Pertinence legend */
-.pertinence-legend{display:block;margin-top:.4rem;font-size:.74rem;color:var(--text-muted);line-height:1.6}
-.pertinence-legend .dot{vertical-align:middle}
-
-/* Pertinence dot — calé sur charte */
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;flex-shrink:0}
-.dot-haute    {background:var(--ai-rouge)}
-.dot-moyenne  {background:var(--ai-violet)}
-.dot-averifier{background:#94a3b8}
-
-/* Title cell */
-.td-titre{min-width:360px}
-.td-titre-inner{display:flex;align-items:flex-start;gap:.3rem}
-.titre-text{flex:1;word-break:break-word;line-height:1.4}
-.titre-link{flex:1;word-break:break-word;line-height:1.4;
-  color:inherit;text-decoration:none}
-.titre-link:hover{color:var(--ai-rouge);text-decoration:underline}
-
-/* Link */
-.link-icon{font-size:1rem;text-decoration:none;display:inline-block;
-  transition:transform .12s;color:var(--ai-rouge)}
-.link-icon:hover{transform:scale(1.25)}
-
-/* No results */
-.no-results{text-align:center;padding:3rem 1rem;color:var(--text-muted)}
-.no-results .icon{font-size:2.5rem;display:block;margin-bottom:.5rem}
-
-/* Tooltip */
-[title]{cursor:default}
-
-/* Type filter — table par bailleur */
-#filter-type .type-table{display:grid;grid-template-columns:repeat(6,1fr);gap:.4rem .8rem;width:100%;margin-top:.1rem}
-#filter-type .type-col-head{font-size:.71rem;font-weight:700;text-transform:uppercase;
-  letter-spacing:.06em;padding:.1rem .35rem .2rem;border-bottom:2px solid;
-  margin-bottom:.3rem;white-space:nowrap}
-#filter-type .type-col-head.bm  {color:var(--ai-violet);border-color:var(--ai-gris)}
-#filter-type .type-col-head.pnud{color:var(--ai-violet);border-color:var(--ai-gris)}
-#filter-type .type-col-head.giz {color:var(--ai-violet);border-color:var(--ai-gris)}
-#filter-type .type-col-head.berd{color:var(--ai-violet);border-color:var(--ai-gris)}
-#filter-type .type-col-head.ted {color:var(--ai-violet);border-color:var(--ai-gris)}
-#filter-type .type-col-head.ef  {color:var(--ai-violet);border-color:var(--ai-gris)}
-#filter-type .chip{white-space:normal;line-height:1.3;align-items:flex-start;
-  margin-bottom:.18rem;display:flex}
-
-/* Triage */
-.triage-btns{display:flex;align-items:center;gap:1px;justify-content:center}
-.triage-btn{background:none;border:none;cursor:pointer;font-size:.95rem;
-  line-height:1;padding:1px 3px;opacity:.15;transition:opacity .12s,transform .1s;
-  border-radius:3px;font-family:inherit}
-.triage-btn:hover{opacity:.65;transform:scale(1.2)}
-.triage-btn.active{opacity:1;background:var(--ai-gris)}
-tr.triage-pertinent    td:first-child{border-left:3px solid var(--ai-rouge)}
-tr.triage-pre-tri      td:first-child{border-left:3px solid var(--ai-violet)}
-tr.triage-non-pertinent td:first-child{border-left:3px solid #94a3b8}
-tr.triage-non-pertinent{opacity:.55}
-
-/* Sidebar badge (notifications) */
-.sidebar-badge{display:inline-flex;align-items:center;justify-content:center;
-  min-width:16px;height:16px;padding:0 4px;background:var(--ai-rouge);
-  color:#fff;border-radius:8px;font-size:.62rem;font-weight:700;
-  margin-left:auto;flex-shrink:0}
-.sidebar-user{padding:.55rem 1rem .5rem;border-top:1px solid #CDD2D6}
-.sidebar-user-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
-  letter-spacing:.08em;color:var(--ai-noir70);margin-bottom:.3rem}
-.user-select{width:100%;padding:.28rem .42rem;border:1px solid #CDD2D6;
-  border-radius:3px;font-size:.78rem;font-family:inherit;color:var(--ai-violet);
-  background:#fff;cursor:pointer}
-.user-select:focus{outline:none;border-color:var(--ai-violet)}
-
-/* Watermark sigle .A */
-.ai-watermark{position:fixed;bottom:16px;right:16px;
-  width:48px;opacity:.18;pointer-events:none;z-index:100}
-
-/* ── Responsive desktop ── */
-@media(max-width:900px){
-  th:nth-child(6),td:nth-child(6),
-  th:nth-child(7),td:nth-child(7){display:none}
-}
-@media(max-width:700px){
-  th:nth-child(5),td:nth-child(5){display:none}
-}
-
-/* ── Mobile header & sidebar overlay ── */
-.mobile-header{display:none;align-items:center;height:48px;
-  background:var(--ai-gris);border-bottom:1px solid #CDD2D6;
-  padding:0 .75rem;position:fixed;top:0;left:0;right:0;z-index:190;gap:.5rem}
-.mobile-header-title{flex:1;text-align:center;font-size:.84rem;font-weight:700;
-  color:var(--ai-violet);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hamburger{background:none;border:none;cursor:pointer;font-size:1.3rem;
-  line-height:1;padding:6px 8px;color:var(--ai-violet);font-family:inherit;flex-shrink:0}
-.mobile-notif-btn{background:none;border:none;cursor:pointer;font-size:1.1rem;
-  padding:6px 8px;color:var(--ai-violet);font-family:inherit;
-  position:relative;flex-shrink:0;text-decoration:none}
-.mobile-badge{position:absolute;top:2px;right:2px;min-width:14px;height:14px;
-  padding:0 3px;background:var(--ai-rouge);color:#fff;border-radius:7px;
-  font-size:.58rem;font-weight:700;display:flex;align-items:center;justify-content:center}
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199}
-
-/* ── Filter toggle bar (mobile only) ── */
-.filter-toggle-bar{display:none;align-items:center;justify-content:space-between;
-  padding:.45rem .9rem;border-bottom:1px solid var(--border);
-  background:var(--ai-gris-clair)}
-.filter-toggle-bar h4{font-size:.82rem;font-weight:700;color:var(--ai-violet)}
-.filter-collapse-btn{background:none;border:1px solid var(--border);border-radius:3px;
-  padding:.22rem .6rem;font-size:.78rem;cursor:pointer;font-family:inherit;
-  color:var(--ai-violet)}
-
-@media(max-width:768px){
-  .mobile-header{display:flex}
-  .layout-wrapper{display:block;padding-top:48px}
-  .sidebar{position:fixed;top:0;left:0;height:100vh;
-    transform:translateX(-100%);transition:transform .25s ease;z-index:200;overflow-y:auto}
-  body.sidebar-open .sidebar{transform:translateX(0)}
-  body.sidebar-open .sidebar-overlay{display:block}
-  .filter-toggle-bar{display:flex}
-  .panel-body{display:none}
-  .panel-body.open{display:block}
-  .chip{padding:.28rem .55rem;min-height:36px}
-  .table-wrap{max-height:calc(100vh - 115px)}
-  /* Colonnes masquées sur mobile */
-  th:nth-child(4),td:nth-child(4){display:none}   /* Secteur */
-  th:nth-child(11),td:nth-child(11){display:none} /* Lien */
-  /* Titre plus compact, cliquable en évidence */
-  .td-titre{min-width:160px}
-  .titre-link{text-decoration:underline;color:var(--ai-violet)}
-}
-@media(max-width:480px){
-  #filter-type .type-table{grid-template-columns:repeat(2,1fr) !important}
-  .date-range{flex-direction:column;align-items:flex-start}
-  th:nth-child(8),td:nth-child(8),
-  th:nth-child(10),td:nth-child(10){display:none}
-  .container{padding:.6rem .7rem}
+@media (max-width: 480px)  {
+  #notices-table .c-pub, #notices-table .c-pays { display: none; }
+  .type-table { grid-template-columns: 1fr 1fr; }
 }
 </style>
 </head>
 <body>
 
+<!-- Icônes SVG monochromes -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-np" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-pre" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+</svg>
+
 <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
-<header class="mobile-header">
-  <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
-  <span class="mobile-header-title">Veille AO</span>
-  <a href="/pertinentes" class="mobile-notif-btn" aria-label="Notifications">
-    🔔<span class="mobile-badge" id="mobile-badge" style="display:none"></span>
-  </a>
+
+<div class="app">
+
+<header class="app-header">
+  <button class="hamburger" type="button" onclick="toggleSidebar()" aria-label="Ouvrir le menu">
+    <svg class="icon" style="width:22px;height:22px"><use href="#i-menu"/></svg>
+  </button>
+  <img class="logo" src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
+  <span class="sep"></span>
+  <div class="app-title">Veille AO<small>Plateforme de veille · AO DEV</small></div>
+  <div class="app-header-actions">
+    <span class="header-status" id="last-update" role="status">Chargement…</span>
+    <button class="btn btn-secondary btn-sm" id="btn-refresh" type="button" data-admin-only onclick="triggerRefresh()" title="Lancer une collecte immédiate (admin)">
+      <svg class="icon"><use href="#i-refresh"/></svg><span class="btn-label">Actualiser</span>
+    </button>
+    <a href="/pertinentes" class="header-notif" aria-label="Offres pertinentes qui me sont assignées">
+      <svg class="icon"><use href="#i-bell"/></svg>
+      <span class="sidebar-badge" id="mobile-badge" style="display:none"></span>
+    </a>
+  </div>
 </header>
 
-<div class="layout-wrapper">
-
-<nav class="sidebar">
-  <div class="sidebar-brand">
-    <img src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
-    <span class="sidebar-brand-sub">Plateforme de veille - AO DEV</span>
-  </div>
-  <span class="sidebar-label">Navigation</span>
-  <a class="sidebar-nav active" href="/">Veille</a>
+<nav class="sidebar" aria-label="Navigation principale">
+  <div class="sidebar-label">Navigation</div>
+  <a class="sidebar-nav active" href="/" aria-current="page">Veille</a>
   <a class="sidebar-nav" href="/analyse">Analyse AO</a>
-  <a class="sidebar-nav" href="/pertinentes" style="justify-content:space-between">
-    Offres pertinentes
+  <a class="sidebar-nav" href="/pertinentes">Offres pertinentes
     <span class="sidebar-badge" id="assign-badge" style="display:none">0</span>
   </a>
   <a class="sidebar-nav" href="/params">Paramètres</a>
   <div class="sidebar-spacer"></div>
-  <div class="sidebar-user">
-    <div class="sidebar-user-label">Je suis</div>
-    <select class="user-select" id="current-user-select" onchange="onUserChange(this.value)">
-      <option value="">— Choisir —</option>
-    </select>
-  </div>
-  <div class="sidebar-actions">
-    <span class="last-update" id="last-update">Chargement…</span>
-    <button id="btn-refresh" onclick="triggerRefresh()" title="Lancer une collecte immédiate">
-      <span id="refresh-icon">↻</span> Actualiser
-    </button>
-  </div>
+  <div class="sidebar-user"></div>
 </nav>
 
-<div class="layout-content">
-<div class="container">
+<main class="app-content">
 
-  <!-- Filter panel -->
-  <div class="panel">
-    <div class="filter-toggle-bar">
-      <h4>⚙ Filtres</h4>
-      <button class="filter-collapse-btn" id="filter-collapse-btn" onclick="toggleFilters()">Afficher ▼</button>
+  <!-- Panneau de filtres -->
+  <section class="panel" aria-label="Filtres">
+    <div class="panel-head">
+      <span class="panel-title">Filtres</span>
+      <div style="display:flex;gap:var(--sp-2)">
+        <button class="btn btn-ghost btn-sm" type="button" onclick="resetFilters()" title="Revenir aux filtres par défaut (les mots-clés sont conservés)">
+          <svg class="icon"><use href="#i-reset"/></svg><span class="btn-label">Réinitialiser les filtres</span>
+        </button>
+        <button class="btn btn-outline btn-sm filters-toggle" id="filter-collapse-btn" type="button" onclick="toggleFilters()" aria-expanded="false" aria-controls="panel-body">
+          <svg class="icon"><use href="#i-filter"/></svg>Afficher
+        </button>
+      </div>
     </div>
-    <div class="panel-body" id="panel-body">
 
-    <!-- Row 1: Bailleur + Langue -->
-    <div class="panel-section">
+    <div class="filters-body" id="panel-body">
+    <div class="panel-body">
       <div class="filter-row">
         <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-bailleur')">Bailleur</span>
         <div class="chip-group" id="filter-bailleur">
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="Banque Mondiale" checked> BM</label>
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="PNUD" checked> PNUD</label>
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="GIZ" checked> GIZ</label>
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="BERD" checked> BERD</label>
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="AFD" checked> AFD</label>
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="TED" checked> TED</label>
-          <label class="chip"><input type="checkbox" class="f-bailleur" value="Expertise France" checked> Exp. France</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="Banque Mondiale" checked>Banque Mondiale</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="PNUD">PNUD</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="GIZ" checked>GIZ</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="BERD" checked>BERD</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="AFD" checked>AFD</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="TED" checked>UE (TED)</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="Expertise France" checked>Expertise France</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="UNGM" checked>ONU (UNGM)</label>
         </div>
       </div>
       <div class="filter-row">
         <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-langue')">Langue</span>
         <div class="chip-group">
-          <label class="chip"><input type="checkbox" class="f-langue" value="Anglais" checked> Anglais</label>
-          <label class="chip"><input type="checkbox" class="f-langue" value="Français" checked> Français</label>
-          <label class="chip"><input type="checkbox" class="f-langue" value="Espagnol" checked> Espagnol</label>
-          <label class="chip"><input type="checkbox" class="f-langue" value="Portugais" checked> Portugais</label>
+          <label class="chip"><input type="checkbox" class="f-langue" value="Anglais" checked>Anglais</label>
+          <label class="chip"><input type="checkbox" class="f-langue" value="Français" checked>Français</label>
+          <label class="chip"><input type="checkbox" class="f-langue" value="Espagnol" checked>Espagnol</label>
+          <label class="chip"><input type="checkbox" class="f-langue" value="Portugais" checked>Portugais</label>
         </div>
       </div>
       <div class="filter-row">
         <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-type')">Type AO</span>
-        <div id="filter-type">
-          <!-- Populated dynamically -->
-        </div>
+        <div id="filter-type"><!-- construit dynamiquement --></div>
       </div>
       <div class="filter-row">
         <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-pertinence')">Pertinence</span>
-        <div class="chip-group">
-          <label class="chip"><input type="checkbox" class="f-pertinence" value="Haute" checked>
-            <span class="dot dot-haute"></span>Haute</label>
-          <label class="chip"><input type="checkbox" class="f-pertinence" value="Moyenne" checked>
-            <span class="dot dot-moyenne"></span>Moyenne</label>
-          <label class="chip"><input type="checkbox" class="f-pertinence" value="À vérifier">
-            <span class="dot dot-averifier"></span>À vérifier</label>
+        <div>
+          <div class="chip-group">
+            <label class="chip"><input type="checkbox" class="f-pertinence" value="Haute" checked><span class="gauge" data-level="3"><i></i><i></i><i></i></span>Haute</label>
+            <label class="chip"><input type="checkbox" class="f-pertinence" value="Moyenne" checked><span class="gauge" data-level="2"><i></i><i></i><i></i></span>Moyenne</label>
+            <label class="chip"><input type="checkbox" class="f-pertinence" value="À vérifier" checked><span class="gauge" data-level="1"><i></i><i></i><i></i></span>À vérifier</label>
+          </div>
+          <p class="legend">
+            <b>Haute</b> : mot-clé métier (faisabilité, AMO, efficacité énergétique…) <i>et</i> secteur cible (Éducation, Santé, Culture) ·
+            <b>Moyenne</b> : l'un ou l'autre ·
+            <b>À vérifier</b> : aucun signal détecté automatiquement
+          </p>
         </div>
-        <span class="pertinence-legend">
-          <span class="dot dot-haute"></span><b>Haute</b> : mot-clé métier (faisabilité, AMO, efficacité énergétique…) <i>et</i> secteur cible (Éducation, Santé, Culture) &nbsp;·&nbsp;
-          <span class="dot dot-moyenne"></span><b>Moyenne</b> : l'un ou l'autre &nbsp;·&nbsp;
-          <span class="dot dot-averifier"></span><b>À vérifier</b> : aucun signal détecté automatiquement
-        </span>
       </div>
       <div class="filter-row">
         <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-triage')">Tri</span>
         <div class="chip-group">
-          <label class="chip"><input type="checkbox" class="f-triage" value="non-pertinent"> 🗑️ Non pertinent</label>
-          <label class="chip"><input type="checkbox" class="f-triage" value="pre-tri"> 🔄 Pré-Tri</label>
-          <label class="chip"><input type="checkbox" class="f-triage" value="pertinent"> ⭐ Pertinent</label>
-          <label class="chip"><input type="checkbox" class="f-triage" value="__untriaged__" checked> — Non trié</label>
+          <label class="chip"><input type="checkbox" class="f-triage" value="__untriaged__" checked>Non trié</label>
+          <label class="chip"><input type="checkbox" class="f-triage" value="pre-tri">Pré-tri</label>
+          <label class="chip"><input type="checkbox" class="f-triage" value="pertinent">Pertinent</label>
+          <label class="chip"><input type="checkbox" class="f-triage" value="non-pertinent">Non pertinent</label>
         </div>
       </div>
       <div class="filter-row">
         <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-pubstate')">Publication</span>
         <div class="chip-group">
-          <label class="chip"><input type="checkbox" class="f-pubstate" value="publie" checked> Publiés</label>
-          <label class="chip"><input type="checkbox" class="f-pubstate" value="avenir" checked> À venir</label>
+          <label class="chip"><input type="checkbox" class="f-pubstate" value="publie" checked>Publiés</label>
+          <label class="chip"><input type="checkbox" class="f-pubstate" value="avenir" checked>À venir</label>
         </div>
       </div>
       <div class="filter-row">
-        <span class="filter-label">Délai</span>
+        <span class="filter-label">Date limite</span>
         <div class="date-range">
-          <span style="font-size:.78rem">Deadline ≥</span>
-          <input type="date" class="date-input" id="dl-from" oninput="applyAndRender()">
-          <span style="font-size:.78rem">et ≤</span>
-          <input type="date" class="date-input" id="dl-to" oninput="applyAndRender()">
+          <span>entre le</span>
+          <input type="date" class="date-input" id="dl-from" oninput="applyAndRender()" aria-label="Date limite au plus tôt">
+          <span>et le</span>
+          <input type="date" class="date-input" id="dl-to" oninput="applyAndRender()" aria-label="Date limite au plus tard">
         </div>
       </div>
     </div>
 
-    <hr class="divider">
-
-    <!-- Paramètres — mots-clés personnalisés persistants -->
-    <div class="panel-section">
-      <div class="filter-row" style="flex-wrap:wrap;align-items:center;gap:.45rem">
-        <span class="filter-label" style="white-space:nowrap">Paramètres</span>
-        <input type="text" class="params-input" id="params-input"
-               placeholder="Ajouter un mot-clé…"
-               onkeydown="handleParamsKey(event)">
-        <div class="params-chips" id="params-chips"></div>
-        <button class="btn btn-outline" onclick="resetParamsKeywords()" style="margin-left:auto;flex-shrink:0">Réinitialiser</button>
+    <!-- Mots-clés partagés par toute l'équipe -->
+    <div class="panel-body">
+      <div class="filter-row">
+        <span class="filter-label">Paramètres</span>
+        <div class="kw-line">
+          <input type="text" class="input kw-input" id="params-input" placeholder="Ajouter un mot-clé…"
+                 aria-label="Ajouter un mot-clé" onkeydown="handleParamsKey(event)">
+          <div class="chip-group" id="params-chips"></div>
+          <button class="btn btn-ghost btn-sm kw-reset" type="button" onclick="resetParamsKeywords()">Réinitialiser</button>
+        </div>
       </div>
-      <div class="filter-row" style="flex-wrap:wrap;align-items:center;gap:.45rem;margin-top:.3rem">
-        <span class="filter-label" style="white-space:nowrap;color:var(--ai-rouge)">Exclusion<span id="exclude-count" style="font-weight:400;font-size:.75rem;color:var(--ai-rouge)"></span></span>
-        <input type="text" class="params-input" id="exclude-input"
-               placeholder="Exclure un mot-clé…"
-               onkeydown="handleExcludeKey(event)">
-        <div class="params-chips" id="exclude-chips"></div>
-        <button class="btn btn-outline" onclick="resetExcludeKeywords()" style="margin-left:auto;flex-shrink:0">Réinitialiser</button>
+      <div class="filter-row">
+        <span class="filter-label">Exclusion<span id="exclude-count" class="num" style="font-weight:400"></span></span>
+        <div class="kw-line">
+          <input type="text" class="input kw-input" id="exclude-input" placeholder="Exclure un mot-clé…"
+                 aria-label="Exclure un mot-clé" onkeydown="handleExcludeKey(event)">
+          <div class="chip-group" id="exclude-chips"></div>
+          <button class="btn btn-ghost btn-sm kw-reset" type="button" onclick="resetExcludeKeywords()">Réinitialiser</button>
+        </div>
       </div>
     </div>
+    </div><!-- /filters-body -->
+  </section>
 
-    </div><!-- /panel-body -->
-  </div><!-- /panel -->
-
-  <!-- Stats bar -->
-  <div class="stats-bar">
-    <div>
-      <span class="count-badge" id="count-display">—</span>
-      <span id="count-label"> AO affichés</span>
+  <!-- Tableau des AO -->
+  <section class="panel" id="table-panel" aria-label="Appels d'offres">
+    <div class="panel-head">
+      <span class="panel-title">Appels d'offres</span>
+      <div class="panel-meta">
+        <span class="counter"><b id="count-display">—</b><span id="count-label"> AO affichés</span></span>
+        <span id="stat-pills" style="display:inline-flex;gap:4px;flex-wrap:wrap"></span>
+      </div>
     </div>
-    <div class="stat-pills" id="stat-pills"></div>
-  </div>
+    <div class="table-wrap">
+      <table class="data-table" id="notices-table">
+        <thead>
+          <tr>
+            <th class="col-tri" style="cursor:default">Tri</th>
+            <th onclick="sortBy('bailleur')">Bailleur</th>
+            <th onclick="sortBy('titre')">Titre</th>
+            <th class="c-secteur" onclick="sortBy('secteur')">Secteur</th>
+            <th class="c-type" onclick="sortBy('type_avis')">Type</th>
+            <th class="c-mode" onclick="sortBy('mode_selection')">Mode</th>
+            <th class="c-langue" onclick="sortBy('langue')">Langue</th>
+            <th class="c-pub" onclick="sortBy('date_publication')">Publication</th>
+            <th onclick="sortBy('date_limite')">Date limite</th>
+            <th class="c-pays" onclick="sortBy('pays')">Pays</th>
+            <th class="c-lien" style="cursor:default"><span class="sr-only">Lien</span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="11" class="no-results">Chargement des données…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
-  <!-- Table -->
-  <div class="table-wrap">
-    <table id="notices-table">
-      <thead>
-        <tr>
-          <th style="cursor:default;width:56px;padding:.5rem .4rem;text-align:center">Tri</th>
-          <th onclick="sortBy('bailleur')">Bailleur</th>
-          <th onclick="sortBy('titre')" style="min-width:220px">Titre</th>
-          <th onclick="sortBy('secteur')">Secteur</th>
-          <th onclick="sortBy('type_avis')">Type</th>
-          <th onclick="sortBy('mode_selection')">Mode</th>
-          <th onclick="sortBy('langue')">Langue</th>
-          <th onclick="sortBy('date_publication')">Publication</th>
-          <th onclick="sortBy('date_limite')">Deadline</th>
-          <th onclick="sortBy('pays')">Pays</th>
-          <th style="cursor:default">🔗</th>
-        </tr>
-      </thead>
-      <tbody id="tbody">
-        <tr><td colspan="11" class="no-results">
-          <span class="icon">⏳</span>Chargement des données…
-        </td></tr>
-      </tbody>
-    </table>
-  </div>
-
-</div><!-- /container -->
+</main>
+</div><!-- /.app -->
 
 <script>
 'use strict';
@@ -504,51 +263,55 @@ let sortCol     = 'date_limite';
 let sortAsc     = true;
 let autoRefreshTimer = null;
 
-// ── Triage (partagé via SQLite serveur) ────────────────────────────────────
+// ── Tri commun à toute l'équipe (Supabase) ─────────────────────────────────
 let triageMap = new Map();
+let triageMeta = new Map();   // id → {by: nom, at: horodatage}
 
 async function loadTriage(){
-  // Migration depuis localStorage (première fois après la mise à jour)
-  const LEGACY_KEY = 'ao_veille_triage';
-  const legacy = localStorage.getItem(LEGACY_KEY);
-  if(legacy){
-    try{
-      const obj = JSON.parse(legacy);
-      const entries = Object.entries(obj).filter(([,v])=>v);
-      if(entries.length > 0){
-        await Promise.allSettled(entries.map(([id, state]) =>
-          fetch(`/api/triage/${encodeURIComponent(id)}`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({state})
-          })
-        ));
-        console.log(`Triage migré : ${entries.length} entrées envoyées au serveur`);
-      }
-      localStorage.removeItem(LEGACY_KEY);
-    }catch(e){ console.warn('Migration triage localStorage :', e); }
-  }
-  // Charger depuis le serveur
+  localStorage.removeItem('ao_veille_triage');   // ancien tri local, remplacé par le tri commun
   try{
     const r = await fetch('/api/triage');
     const d = await r.json();
     triageMap = new Map(Object.entries(d.triage || {}));
-  }catch(e){ console.warn('Impossible de charger le triage :', e); }
+    triageMeta = new Map(Object.entries(d.meta || {}));
+  }catch(e){ console.warn('Impossible de charger le tri :', e); }
+}
+
+// Infobulle « Trié par X le JJ/MM » sur le bouton actif.
+function triageTitle(id, label, state){
+  const ts = triageMap.get(id);
+  const m = triageMeta.get(id);
+  if(ts !== state || !m || !m.by) return label;
+  const when = m.at ? ` le ${new Date(m.at).toLocaleDateString('fr-FR')}` : '';
+  return `${label} — trié par ${m.by}${when}`;
 }
 
 async function setTriage(id, val){
   const current = triageMap.get(id) || null;
-  const newState = (current === val) ? null : val; // toggle off → non trié
+  const newState = (current === val) ? null : val; // re-clic → non trié
+  const previous = {state: current, meta: triageMeta.get(id)};
   // Mise à jour optimiste (immédiate)
-  if(newState) triageMap.set(id, newState);
-  else triageMap.delete(id);
+  if(newState){
+    triageMap.set(id, newState);
+    triageMeta.set(id, {by: VeilleAuth.user.name, at: new Date().toISOString()});
+  } else {
+    triageMap.delete(id);
+    triageMeta.delete(id);
+  }
   applyAndRender();
-  // Synchronisation serveur
   try{
-    await fetch(`/api/triage/${encodeURIComponent(id)}`, {
+    const r = await fetch(`/api/triage/${encodeURIComponent(id)}`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({state: newState})
     });
-  }catch(e){ console.warn('Triage non sauvegardé :', e); }
+    if(!r.ok) throw new Error((await r.json()).error || ('HTTP ' + r.status));
+  }catch(e){
+    // Échec : on revient à l'état précédent pour ne pas afficher un tri non enregistré.
+    if(previous.state){ triageMap.set(id, previous.state); if(previous.meta) triageMeta.set(id, previous.meta); }
+    else { triageMap.delete(id); triageMeta.delete(id); }
+    applyAndRender();
+    alert('Tri non enregistré : ' + e.message);
+  }
 }
 
 const MONTHS = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
@@ -567,14 +330,26 @@ function pertClass(p){
   if(p==='Moyenne') return 'moyenne';
   return 'averifier';
 }
-function badgeClass(b){
-  const m={'Banque Mondiale':'badge-bm','PNUD':'badge-pnud','GIZ':'badge-giz','BERD':'badge-berd','AFD':'badge-afd','TED':'badge-ted','Expertise France':'badge-ef'};
-  return m[b]||'badge-unknown';
+function bailleurShort(b){
+  return {'Banque Mondiale':'BM','Expertise France':'EF','TED':'UE'}[b] || b;
 }
-function dotClass(p){
-  if(p==='Haute') return 'dot-haute';
-  if(p==='Moyenne') return 'dot-moyenne';
-  return 'dot-averifier';
+// Jauge de pertinence à 3 crans : Haute 3 · Moyenne 2 · À vérifier 1
+function gauge(p){
+  const lvl = p==='Haute' ? 3 : (p==='Moyenne' ? 2 : 1);
+  return `<span class="gauge" data-level="${lvl}" title="Pertinence : ${esc(p||'À vérifier')}"><i></i><i></i><i></i></span>`;
+}
+// Interrupteur de tri à 2 positions (page Veille) ; un AO déjà « Pertinent »
+// affiche un repère non cliquable (le tri se modifie depuis Offres pertinentes).
+function triageCell(n, ts){
+  const id = esc(n.id);
+  if(ts === 'pertinent'){
+    return `<span class="tag tag-pertinent" title="${esc(triageTitle(n.id,'Pertinent','pertinent'))}"><svg class="icon" style="width:12px;height:12px"><use href="#i-star"/></svg>Pertinent</span>`;
+  }
+  const np = ts === 'non-pertinent', pre = ts === 'pre-tri';
+  return `<div class="tri-switch" role="group" aria-label="Tri de l'AO">
+    <button class="tri-np" type="button" aria-pressed="${np}" aria-label="Non pertinent" onclick="setTriage('${id}','non-pertinent')" title="${esc(triageTitle(n.id,'Non pertinent','non-pertinent'))}"><svg class="icon"><use href="#i-np"/></svg><span class="label">Non pert.</span></button>
+    <button class="tri-pre" type="button" aria-pressed="${pre}" aria-label="Pré-tri" onclick="setTriage('${id}','pre-tri')" title="${esc(triageTitle(n.id,'Pré-tri','pre-tri'))}"><svg class="icon"><use href="#i-pre"/></svg><span class="label">Pré-tri</span></button>
+  </div>`;
 }
 
 // raw type string → canonical abbreviation
@@ -639,7 +414,14 @@ const TYPE_FULL_NAMES = {
   'brin':             "Avis de modification de contrat",
 };
 
-function typeLabel(abbr){
+// Libellés propres à un bailleur (prioritaires sur TYPE_FULL_NAMES)
+const TYPE_LABELS_BY_BAILLEUR = {
+  'UNGM': { 'RFP': 'Demande de propositions', 'EOI': "AMI (appel à manifestation d'intérêt)" },
+};
+
+function typeLabel(abbr, bailleur){
+  const own = (TYPE_LABELS_BY_BAILLEUR[bailleur] || {})[abbr];
+  if(own) return own;
   const full = TYPE_FULL_NAMES[abbr];
   return full ? `${full} (${abbr})` : abbr;
 }
@@ -664,38 +446,15 @@ function toggleGroup(selector, root){
   applyAndRender();
 }
 
-// ── Paramètres & Exclusion — partagés via SQLite serveur ──────────────────
+// ── Paramètres & Exclusion — mots-clés partagés par toute l'équipe ────────
 let paramsKeywords  = [];
 let excludeKeywords = [];
 
 async function loadSettings(){
-  // Migration depuis localStorage (première fois après mise à jour)
-  const legacyParams   = localStorage.getItem('ao_veille_params_keywords');
-  const legacyExclude  = localStorage.getItem('ao_veille_exclude_keywords');
-  const migrations = [];
-  if(legacyParams){
-    try{
-      const arr = JSON.parse(legacyParams);
-      if(arr.length) migrations.push(
-        fetch('/api/settings/params_keywords', {method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({value: legacyParams})})
-      );
-      localStorage.removeItem('ao_veille_params_keywords');
-    }catch(e){}
-  }
-  if(legacyExclude){
-    try{
-      const arr = JSON.parse(legacyExclude);
-      if(arr.length) migrations.push(
-        fetch('/api/settings/exclude_keywords', {method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({value: legacyExclude})})
-      );
-      localStorage.removeItem('ao_veille_exclude_keywords');
-    }catch(e){}
-  }
-  if(migrations.length) await Promise.allSettled(migrations);
+  // Anciennes listes stockées dans ce navigateur : on les oublie (la liste
+  // partagée côté serveur fait foi et ne doit pas être écrasée).
+  localStorage.removeItem('ao_veille_params_keywords');
+  localStorage.removeItem('ao_veille_exclude_keywords');
 
   // Charger depuis le serveur
   try{
@@ -732,9 +491,7 @@ function renderParamsChips(){
   const container = document.getElementById('params-chips');
   if(!container) return;
   container.innerHTML = paramsKeywords.map(kw =>
-    `<span class="params-chip">
-      <button class="params-chip-remove" onclick="removeParamsKeyword('${esc(kw)}')" title="Supprimer">✕</button>${esc(kw)}
-    </span>`
+    `<span class="kw-chip">${esc(kw)}<button type="button" onclick="removeParamsKeyword('${esc(kw)}')" aria-label="Retirer ${esc(kw)}" title="Retirer">×</button></span>`
   ).join('');
 }
 
@@ -766,9 +523,7 @@ function renderExcludeChips(){
   const container = document.getElementById('exclude-chips');
   if(!container) return;
   container.innerHTML = excludeKeywords.map(kw =>
-    `<span class="params-chip exclude">
-      <button class="params-chip-remove" onclick="removeExcludeKeyword('${esc(kw)}')" title="Supprimer">✕</button>${esc(kw)}
-    </span>`
+    `<span class="kw-chip kw-exclude">${esc(kw)}<button type="button" onclick="removeExcludeKeyword('${esc(kw)}')" aria-label="Retirer ${esc(kw)}" title="Retirer">×</button></span>`
   ).join('');
 }
 
@@ -819,9 +574,7 @@ const TYPE_DEFAULT_OFF = new Set([
   'PNUD||ITB', 'PNUD||CFP', 'PNUD||EOI', 'PNUD||LTA',
   // GIZ — pas de marché attribué ni appel d'offres travaux
   'GIZ||VgVVergebener Auftrag', 'GIZ||VOB/A/Ausschreibung',
-  // BERD — pas d'invitation à soumissionner (1 ou 2 tours), pas de liste/avis de présélection, ni GPN
-  'BERD||Invitation For Tenders Single',
-  'BERD||Invitation For Tenders Two Stage',
+  // BERD — pas de liste/avis de présélection, ni GPN (invitations à soumissionner cochées)
   'BERD||Shortlist Notice',
   'BERD||Notice of Prequalified Participants',
   'BERD||GPN',
@@ -844,9 +597,9 @@ function buildTypeFilters(notices){
     byBailleur[b].add(abbr);
   }
 
-  const ORDER    = ['Banque Mondiale','PNUD','GIZ','BERD','TED','Expertise France'];
-  const SHORT    = {'Banque Mondiale':'BM','PNUD':'PNUD','GIZ':'GIZ','BERD':'BERD','TED':'TED','Expertise France':'EF'};
-  const COLCLS   = {'Banque Mondiale':'bm','PNUD':'pnud','GIZ':'giz','BERD':'berd','TED':'ted','Expertise France':'ef'};
+  const ORDER    = ['Banque Mondiale','PNUD','GIZ','BERD','TED','Expertise France','UNGM'];
+  const SHORT    = {'Banque Mondiale':'BM','PNUD':'PNUD','GIZ':'GIZ','BERD':'BERD','TED':'TED','Expertise France':'EF','UNGM':'UNGM'};
+  const COLCLS   = {'Banque Mondiale':'bm','PNUD':'pnud','GIZ':'giz','BERD':'berd','TED':'ted','Expertise France':'ef','UNGM':'ungm'};
   const KNOWN    = ['REOI','GPN','RFP','ITB','CFP','RFB','EOI','RFQ','IC','LTA','OTHER'];
 
   const sortAbbrs = arr => [...arr].sort((a,z)=>{
@@ -871,7 +624,7 @@ function buildTypeFilters(notices){
       }
       return `<label class="chip">
         <input type="checkbox" class="f-type" value="${esc(key)}"${chk}>
-        ${esc(typeLabel(abbr))}
+        ${esc(typeLabel(abbr, b))}
       </label>`;
     }).join('');
 
@@ -893,7 +646,6 @@ function buildTypeFilters(notices){
 
     return `<div class="type-col" id="${colId}">
       <div class="type-col-head ${COLCLS[b]}" title="Tout cocher / décocher"
-           style="cursor:pointer;user-select:none"
            onclick="toggleGroup('.f-type', document.getElementById('${colId}'))">${SHORT[b]}</div>
       ${chips}
     </div>`;
@@ -915,9 +667,7 @@ async function loadNotices(){
     applyAndRender();
   }catch(e){
     document.getElementById('tbody').innerHTML=`
-      <tr><td colspan="10" class="no-results">
-        <span class="icon">⚠️</span>Erreur de chargement : ${esc(String(e))}
-      </td></tr>`;
+      <tr><td colspan="11" class="no-results">Erreur de chargement : ${esc(String(e))}</td></tr>`;
     console.error(e);
   }
 }
@@ -928,7 +678,7 @@ function updateLastUpdate(ts, isRefreshing){
   if(isRefreshing){
     el.textContent='Collecte en cours…';
     btn.disabled=true;
-    btn.innerHTML='<span class="spinner"></span> Collecte…';
+    btn.innerHTML=REFRESH_BUSY;
   } else {
     if(ts){
       const d=new Date(ts);
@@ -937,27 +687,32 @@ function updateLastUpdate(ts, isRefreshing){
       el.textContent='Aucune collecte effectuée';
     }
     btn.disabled=false;
-    btn.innerHTML='<span id="refresh-icon">↻</span> Actualiser';
+    btn.innerHTML=REFRESH_IDLE;
   }
 }
+const REFRESH_IDLE='<svg class="icon"><use href="#i-refresh"/></svg><span class="btn-label">Actualiser</span>';
+const REFRESH_BUSY='<span class="spinner"></span><span class="btn-label">Collecte…</span>';
 
 function buildStatPills(data){
   const el=document.getElementById('stat-pills');
   const total=data.total||allNotices.length;
   const counts={};
   allNotices.forEach(n=>{ counts[n.bailleur]=(counts[n.bailleur]||0)+1 });
-  const classes={'Banque Mondiale':'','PNUD':'pnud','GIZ':'giz','BERD':'berd','AFD':'afd','TED':'ted','Expertise France':'ef'};
-  const short={'Banque Mondiale':'BM','Expertise France':'EF'};
   el.innerHTML=Object.entries(counts).map(([b,c])=>
-    `<span class="stat-pill ${classes[b]||''}" title="${b}">${short[b]||b} ${c}</span>`
+    `<span class="badge" title="${esc(b)}">${esc(bailleurShort(b))}<span class="n">${c}</span></span>`
   ).join('');
   if(data.errors&&data.errors.length){
-    el.innerHTML+=`<span class="errors-badge" title="${esc(data.errors.join('\n'))}">⚠ ${data.errors.length} source(s) en erreur</span>`;
+    el.innerHTML+=`<span class="tag tag-alerte" title="${esc(data.errors.join('\n'))}">${data.errors.length} source(s) en erreur</span>`;
   }
 }
 
 // ── Filters ────────────────────────────────────────────────────────────────
 function checked(cls){ return [...document.querySelectorAll(`.${cls}:checked`)].map(c=>c.value) }
+// Toutes les valeurs proposées dans une section (cochées ou non).
+function offered(cls){ return new Set([...document.querySelectorAll(`.${cls}`)].map(c=>c.value)) }
+// Une valeur proposée mais décochée exclut l'AO — y compris quand toute la
+// section est décochée. Une valeur sans case (cas imprévu) ne filtre pas.
+function isOff(offeredSet, checkedList, value){ return offeredSet.has(value) && !checkedList.includes(value) }
 
 function applyFilters(){
   const bailleurs   = checked('f-bailleur');
@@ -974,33 +729,30 @@ function applyFilters(){
   const today       = new Date().toISOString().slice(0,10);
 
   const typeAbbrs=types;
+  const offeredBailleurs   = offered('f-bailleur');
+  const offeredLangues     = offered('f-langue');
+  const offeredPertinences = offered('f-pertinence');
+  const offeredTypes       = offered('f-type');
 
   // 1er passage : tous les filtres sauf exclusion
+  // Règle commune : une case décochée exclut ses AO, même si toute la section
+  // est décochée (« tout décocher » affiche donc bien zéro AO).
   const preFiltered = allNotices.filter(n=>{
     // Tri
-    if(triageVals.length < 4){
-      const state = triage.get(n.id) || '__untriaged__';
-      if(!triageVals.includes(state)) return false;
-    }
-    // État de publication
-    if(pubStates.length < 2 && pubStates.length > 0){
-      const pub = n.date_publication || '';
-      const isAvenir = pub > today;
-      if(pubStates.includes('avenir') && !isAvenir) return false;
-      if(pubStates.includes('publie') && isAvenir) return false;
-    }
+    const state = triage.get(n.id) || '__untriaged__';
+    if(!triageVals.includes(state)) return false;
+    // État de publication (publié ≤ aujourd'hui, à venir > aujourd'hui)
+    const isAvenir = (n.date_publication || '') > today;
+    if(!pubStates.includes(isAvenir ? 'avenir' : 'publie')) return false;
     // Bailleur
-    if(bailleurs.length && !bailleurs.includes(n.bailleur)) return false;
+    if(isOff(offeredBailleurs, bailleurs, n.bailleur)) return false;
     // Langue
-    if(langues.length && !langues.includes(n.langue)) return false;
+    if(isOff(offeredLangues, langues, n.langue)) return false;
     // Pertinence
-    if(pertinences.length && !pertinences.includes(n.pertinence)) return false;
+    if(isOff(offeredPertinences, pertinences, n.pertinence)) return false;
     // Type (bailleur||abbr) — notices sans type_avis passent toujours
-    if(typeAbbrs.length){
-      const typeAbbr = abbrType(n.type_avis||'');
-      const typeKey  = n.bailleur + '||' + typeAbbr;
-      if(typeAbbr && !typeAbbrs.includes(typeKey)) return false;
-    }
+    const typeAbbr = abbrType(n.type_avis||'');
+    if(typeAbbr && isOff(offeredTypes, typeAbbrs, n.bailleur + '||' + typeAbbr)) return false;
     // Filtre spécial BM : Individual Consultant (basé sur mode_selection)
     if(n.bailleur === 'Banque Mondiale'){
       const isIC = (n.mode_selection || '').toLowerCase().includes('individual consultant');
@@ -1067,9 +819,8 @@ function renderTable(){
 
   if(!sorted.length){
     tbody.innerHTML=`<tr><td colspan="11" class="no-results">
-      <span class="icon">🔎</span>
       Aucun AO trouvé avec ces filtres.<br>
-      <button class="btn btn-outline" style="margin-top:.7rem" onclick="resetFilters()">Réinitialiser les filtres</button>
+      <button class="btn btn-outline" type="button" onclick="resetFilters()">Réinitialiser les filtres</button>
     </td></tr>`;
     return;
   }
@@ -1077,36 +828,26 @@ function renderTable(){
   const triage = triageMap;
   tbody.innerHTML=sorted.map(n=>{
     const pc=pertClass(n.pertinence);
-    const bc=badgeClass(n.bailleur);
-    const bailleurShort=n.bailleur==='Banque Mondiale'?'BM':(n.bailleur==='Expertise France'?'EF':n.bailleur);
     const ts=triage.get(n.id)||null;
     const trClass=ts?` triage-${ts}`:'';
+    const titre = n.lien
+      ? `<a href="${esc(n.lien)}" target="_blank" rel="noopener">${esc(n.titre)}</a>`
+      : `<span>${esc(n.titre)}</span>`;
     return `<tr class="${pc}${trClass}">
-      <td style="text-align:center;padding:.42rem .3rem">
-        <div class="triage-btns">
-          <button class="triage-btn${ts==='non-pertinent'?' active':''}" onclick="setTriage('${esc(n.id)}','non-pertinent')" title="Non pertinent">🗑️</button>
-          <button class="triage-btn${ts==='pre-tri'?' active':''}" onclick="setTriage('${esc(n.id)}','pre-tri')" title="Pré-Tri">🔄</button>
-          <button class="triage-btn${ts==='pertinent'?' active':''}" onclick="setTriage('${esc(n.id)}','pertinent')" title="Pertinent">⭐</button>
-        </div>
+      <td class="col-tri">${triageCell(n, ts)}</td>
+      <td><span class="badge" title="${esc(n.bailleur)}">${esc(bailleurShort(n.bailleur))}</span></td>
+      <td class="titre">
+        <div class="titre-line">${gauge(n.pertinence)}${titre}</div>
+        ${n.projet&&n.projet!==n.titre?`<span class="sub" title="${esc(n.projet)}">${esc(trunc(n.projet,80))}</span>`:''}
       </td>
-      <td><span class="badge ${bc}">${esc(bailleurShort)}</span></td>
-      <td class="td-titre">
-        <div class="td-titre-inner">
-          <span class="dot ${dotClass(n.pertinence)}" title="${esc(n.pertinence)}"></span>
-          ${n.lien
-            ? `<a href="${esc(n.lien)}" target="_blank" rel="noopener" class="titre-link">${esc(n.titre)}</a>`
-            : `<span class="titre-text">${esc(n.titre)}</span>`}
-        </div>
-        ${n.projet&&n.projet!==n.titre?`<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(n.projet)}">${esc(trunc(n.projet,60))}</div>`:''}
-      </td>
-      <td>${esc(n.secteur||'')}</td>
-      <td title="${esc(n.type_avis||'')}">${esc(abbrType(n.type_avis||''))}</td>
-      <td title="${esc(n.mode_selection||'')}">${esc(trunc(n.mode_selection||'',15))}</td>
-      <td>${esc(n.langue||'')}</td>
-      <td style="white-space:nowrap;font-size:.77rem">${fmtDate(n.date_publication)}</td>
-      <td style="white-space:nowrap;font-size:.77rem;font-weight:${isUrgent(n.date_limite)?'700':'400'};color:${isUrgent(n.date_limite)?'#b91c1c':'inherit'}">${fmtDate(n.date_limite)}</td>
-      <td style="white-space:nowrap">${esc(n.pays||'')}</td>
-      <td style="text-align:center">${n.lien?`<a href="${esc(n.lien)}" target="_blank" rel="noopener" class="link-icon" title="Voir l'avis">🔗</a>`:''}</td>
+      <td class="c-secteur">${esc(n.secteur||'')}</td>
+      <td class="c-type" title="${esc(n.type_avis||'')}">${esc(abbrType(n.type_avis||''))}</td>
+      <td class="c-mode" title="${esc(n.mode_selection||'')}">${esc(trunc(n.mode_selection||'',15))}</td>
+      <td class="c-langue">${esc(n.langue||'')}</td>
+      <td class="date c-pub">${fmtDate(n.date_publication)}</td>
+      <td class="date"><span class="deadline${isUrgent(n.date_limite)?' urgent':''}">${fmtDate(n.date_limite)}</span></td>
+      <td class="c-pays" style="white-space:nowrap">${esc(n.pays||'')}</td>
+      <td class="c-lien">${n.lien?`<a href="${esc(n.lien)}" target="_blank" rel="noopener" class="link-ext" title="Voir l'avis" aria-label="Voir l'avis"><svg class="icon"><use href="#i-ext"/></svg></a>`:''}</td>
     </tr>`;
   }).join('');
 }
@@ -1121,34 +862,51 @@ function applyAndRender(){ applyFilters(); renderTable(); }
 
 // ── Reset ──────────────────────────────────────────────────────────────────
 function resetFilters(){
-  document.querySelectorAll('.f-bailleur,.f-langue,.f-pertinence,.f-pubstate,.f-triage').forEach(c=>{ c.checked=true; });
-  document.querySelectorAll('.f-type').forEach(c=>{ c.checked=true; });
+  // Retour aux réglages par défaut de chaque case (attribut « checked » du HTML,
+  // y compris pour les types d'AO générés) : PNUD décoché, « À vérifier » coché…
+  document.querySelectorAll('.f-bailleur,.f-langue,.f-pertinence,.f-pubstate,.f-triage,.f-type')
+    .forEach(c=>{ c.checked=c.defaultChecked; });
   document.getElementById('dl-from').value=new Date().toISOString().slice(0,10);
   document.getElementById('dl-to').value='';
   applyAndRender();
   // Note : les mots-clés "Paramètres" sont intentionnellement conservés
 }
 
-// ── Refresh trigger ────────────────────────────────────────────────────────
+// ── Collecte manuelle (admin) : les sources une par une ────────────────────
+// Chaque source est un appel court (limite de durée Vercel) ; on affiche la
+// progression et on récapitule les erreurs à la fin.
 async function triggerRefresh(){
   const btn=document.getElementById('btn-refresh');
+  const status=document.getElementById('last-update');
   btn.disabled=true;
-  btn.innerHTML='<span class="spinner"></span> Collecte…';
-  document.getElementById('last-update').textContent='Collecte démarrée…';
+  btn.innerHTML=REFRESH_BUSY;
+  let sources=[];
   try{
-    await fetch('/api/refresh',{method:'POST'});
+    const r=await fetch('/api/collect/status');
+    sources=(await r.json()).available||[];
   }catch(e){ console.warn(e) }
-  // Poll until done
-  const check=setInterval(async()=>{
+
+  const errors=[]; let added=0;
+  for(let i=0;i<sources.length;i++){
+    const s=sources[i];
+    status.textContent=`Collecte ${i+1}/${sources.length} : ${s.label}…`;
     try{
-      const r=await fetch('/api/refresh/status');
-      const s=await r.json();
-      if(!s.is_running){
-        clearInterval(check);
-        await loadNotices();
-      }
-    }catch(e){ clearInterval(check); await loadNotices(); }
-  },2500);
+      const r=await fetch(`/api/collect/${encodeURIComponent(s.key)}`,{method:'POST'});
+      const d=await r.json();
+      if(!r.ok||!d.ok) errors.push(`${s.label} : ${d.error||('HTTP '+r.status)}`);
+      else added+=d.inserted||0;
+    }catch(e){ errors.push(`${s.label} : ${e.message}`) }
+  }
+  await loadNotices();
+  if(errors.length){
+    status.textContent=`Collecte terminée · ${errors.length} source(s) en erreur`;
+    status.title=errors.join('\n');
+    alert('Collecte terminée avec des erreurs :\n\n'+errors.join('\n'));
+  } else {
+    status.title='';
+    status.textContent=`Collecte terminée · ${added} AO ajouté(s)`;
+    setTimeout(()=>loadNotices(),4000);
+  }
 }
 
 // ── Auto-refresh every 5 min ───────────────────────────────────────────────
@@ -1165,50 +923,14 @@ function toggleFilters(){
   const btn  = document.getElementById('filter-collapse-btn');
   if(!body) return;
   const isOpen = body.classList.toggle('open');
-  if(btn) btn.textContent = isOpen ? 'Masquer ▲' : 'Afficher ▼';
+  if(btn){
+    btn.innerHTML = `<svg class="icon"><use href="#i-filter"/></svg>${isOpen ? 'Masquer' : 'Afficher'}`;
+    btn.setAttribute('aria-expanded', String(isOpen));
+  }
 }
 
-// ── Identité utilisateur + badge notifications ─────────────────────────────
-const USER_KEY = 'ao_veille_current_user';
-let teamMembers = [];
-
-async function loadTeam(){
-  try{
-    const r = await fetch('/api/team');
-    const d = await r.json();
-    teamMembers = d.members || [];
-    const sel = document.getElementById('current-user-select');
-    if(!sel) return;
-    const current = localStorage.getItem(USER_KEY) || '';
-    sel.innerHTML = '<option value="">— Choisir —</option>' +
-      teamMembers.map(m =>
-        `<option value="${esc(m.name)}"${m.name===current?' selected':''}>${esc(m.name)}</option>`
-      ).join('');
-    if(current) updateAssignBadge(current);
-  }catch(e){ console.warn('loadTeam:', e); }
-}
-
-function onUserChange(val){
-  if(val) localStorage.setItem(USER_KEY, val);
-  else localStorage.removeItem(USER_KEY);
-  updateAssignBadge(val);
-}
-
-async function updateAssignBadge(user){
-  const badge  = document.getElementById('assign-badge');
-  const mBadge = document.getElementById('mobile-badge');
-  const hide = ()=>{ if(badge) badge.style.display='none'; if(mBadge) mBadge.style.display='none'; };
-  if(!user){ hide(); return; }
-  try{
-    const r = await fetch(`/api/assignments/user/${encodeURIComponent(user)}`);
-    const d = await r.json();
-    const unread = d.unread || 0;
-    if(unread > 0){
-      if(badge){ badge.textContent=unread; badge.style.display=''; }
-      if(mBadge){ mBadge.textContent=unread; mBadge.style.display=''; }
-    } else { hide(); }
-  }catch(e){ hide(); }
-}
+// L'identité (compte connecté) et le badge d'assignations sont gérés par
+// /static/auth.js (VeilleAuth.user, VeilleAuth.refreshAssignBadge).
 
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init(){
@@ -1227,23 +949,17 @@ async function init(){
     }
   });
 
-  await Promise.all([loadTriage(), loadSettings(), loadTeam()]);
+  await Promise.all([loadTriage(), loadSettings()]);
   renderParamsChips();
   renderExcludeChips();
   await loadNotices();
   startAutoRefresh();
-  // Rafraîchir le badge toutes les 2 min
-  setInterval(()=>{
-    const user = localStorage.getItem(USER_KEY);
-    if(user) updateAssignBadge(user);
-  }, 2*60*1000);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// Démarrage une fois la connexion vérifiée (compte validé).
+VeilleAuth.onReady(init);
 </script>
 
-</div><!-- /.layout-content -->
-</div><!-- /.layout-wrapper -->
 
 <img src="/static/sigle_A_rouge_HD.png" alt="" class="ai-watermark" aria-hidden="true">
 </body>

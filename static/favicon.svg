@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <!-- Pictogramme Veille AO : globe agrandi, poignée de loupe débordant du disque.
+       La poignée a un liseré rouge pour rester visible hors du disque (onglets clairs). -->
+  <circle cx="40" cy="40" r="38" fill="#E30513"/>
+  <path d="M51 51 L74.5 74.5" stroke="#E30513" stroke-width="10" stroke-linecap="round"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="36" cy="36" r="21"/>
+    <ellipse cx="36" cy="36" rx="9.2" ry="20.3"/>
+    <path d="M15.7 36 H56.3"/>
+    <path d="M19.6 24.2 H52.4"/>
+    <path d="M19.6 47.8 H52.4"/>
+  </g>
+  <path d="M51 51 L74.5 74.5" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+</svg>

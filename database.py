@@ -1,450 +1,271 @@
+"""Accès aux données Veille AO dans Supabase (tables veilleao_* du projet INTERNAL).
+
+Mêmes fonctions qu'avec l'ancienne base SQLite. Celles qui touchent aux données
+d'un utilisateur reçoivent son compte (`user`) et passent par son jeton : la
+sécurité de la base (RLS) s'applique. Celles qui servent la collecte, le cache et
+les journaux utilisent la clé serveur.
+"""
 import json
-import sqlite3
 import logging
-from datetime import date
-from config import DB_PATH
+from datetime import datetime, timedelta, timezone
+
+import supa
+from supa import eq, in_
 
 log = logging.getLogger(__name__)
 
-_FTS_AVAILABLE = True
+TRIAGE_STATES = ("non-pertinent", "pre-tri", "pertinent")
+SHARED_SETTINGS = ("params_keywords", "exclude_keywords")
+# Colonnes renvoyées à l'interface (sans texte_complet, réservé au scoring/détail).
+NOTICE_LIST_COLS = ("id,bailleur,titre,projet,secteur,type_avis,mode_selection,langue,"
+                    "date_publication,date_limite,pays,lien,pertinence,triage")
+UPSERT_COLS = ("id", "bailleur", "titre", "projet", "secteur", "type_avis", "mode_selection",
+               "langue", "date_publication", "date_limite", "pays", "lien", "pertinence",
+               "texte_complet")
+MAX_BATCH_BYTES = 900_000
+RUN_STALE_AFTER = timedelta(minutes=10)
 
 
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=30)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=MEMORY")
-    return conn
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-def _db_is_healthy() -> bool:
-    """Vrai contrôle d'intégrité : lit réellement les pages de la base.
-    Un SELECT 1 ne suffit PAS (il ne touche aucune page) — il faut quick_check
-    + une lecture du schéma pour détecter une base 'malformed'."""
-    import os
-    if not os.path.exists(DB_PATH):
-        return True  # base absente : elle sera créée à neuf, donc OK
-    test = None
-    try:
-        test = sqlite3.connect(DB_PATH, timeout=5)
-        row = test.execute("PRAGMA quick_check").fetchone()
-        test.execute("PRAGMA journal_mode=MEMORY")          # le point qui plantait
-        test.execute("SELECT name FROM sqlite_master LIMIT 1")
-        return bool(row) and row[0] == "ok"
-    except Exception as e:
-        log.warning(f"Contrôle d'intégrité : base illisible ({e})")
-        return False
-    finally:
-        if test is not None:
-            try:
-                test.close()
-            except Exception:
-                pass
+# ── Avis ────────────────────────────────────────────────────────────────────
+
+def get_notices(user, filters: "dict | None" = None) -> list:
+    params = {"select": NOTICE_LIST_COLS, "actif": "is.true",
+              "order": "date_limite.asc.nullslast,id.asc"}
+    f = filters or {}
+    if f.get("bailleur"):
+        params["bailleur"] = in_(f["bailleur"])
+    if f.get("langue"):
+        params["langue"] = in_(f["langue"])
+    if f.get("pertinence"):
+        params["pertinence"] = in_(f["pertinence"])
+    if f.get("deadline_from") and f.get("deadline_to"):
+        params["and"] = f"(date_limite.gte.{f['deadline_from']},date_limite.lte.{f['deadline_to']})"
+    elif f.get("deadline_from"):
+        params["date_limite"] = f"gte.{f['deadline_from']}"
+    elif f.get("deadline_to"):
+        params["date_limite"] = f"lte.{f['deadline_to']}"
+    return supa.as_user(user.token).select("veilleao_notices", params, all_rows=True)
 
 
-def init_db():
-    global _FTS_AVAILABLE
-    # Si la base est corrompue (ex. synchro Google Drive), la supprimer et repartir à zéro
-    if not _db_is_healthy():
-        import os
-        for s in ("", "-journal", "-wal", "-shm"):
-            try:
-                os.remove(DB_PATH + s)
-            except (FileNotFoundError, PermissionError, OSError):
-                pass
-        log.warning("Base de données corrompue — réinitialisée à neuf")
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.executescript("""
-        CREATE TABLE IF NOT EXISTS settings (
-            key   TEXT PRIMARY KEY,
-            value TEXT
-        );
-        CREATE TABLE IF NOT EXISTS assignments (
-            notice_id   TEXT NOT NULL,
-            assignee    TEXT NOT NULL,
-            assigned_by TEXT,
-            assigned_at TEXT DEFAULT (datetime('now')),
-            note        TEXT,
-            seen        INTEGER DEFAULT 0,
-            PRIMARY KEY (notice_id, assignee)
-        );
-        CREATE TABLE IF NOT EXISTS notices (
-            id               TEXT PRIMARY KEY,
-            bailleur         TEXT NOT NULL,
-            titre            TEXT NOT NULL,
-            projet           TEXT,
-            secteur          TEXT,
-            type_avis        TEXT,
-            mode_selection   TEXT,
-            langue           TEXT,
-            date_publication TEXT,
-            date_limite      TEXT,
-            pays             TEXT,
-            lien             TEXT,
-            pertinence       TEXT,
-            texte_complet    TEXT,
-            date_ajout       TEXT DEFAULT (datetime('now')),
-            actif            INTEGER DEFAULT 1
-        );
-        CREATE INDEX IF NOT EXISTS idx_bailleur    ON notices(bailleur);
-        CREATE INDEX IF NOT EXISTS idx_langue      ON notices(langue);
-        CREATE INDEX IF NOT EXISTS idx_date_limite ON notices(date_limite);
-        CREATE INDEX IF NOT EXISTS idx_actif       ON notices(actif);
-        CREATE TABLE IF NOT EXISTS notice_details (
-            notice_id   TEXT PRIMARY KEY,
-            detail_json TEXT NOT NULL,
-            fetched_at  TEXT DEFAULT (datetime('now'))
-        );
-    """)
-    conn.commit()
-
-    # Migration : ajout de la colonne triage si elle n'existe pas encore
-    try:
-        cur.execute("ALTER TABLE notices ADD COLUMN triage TEXT")
-        conn.commit()
-        log.info("Colonne 'triage' ajoutée à la table notices")
-    except Exception:
-        pass  # Colonne déjà présente
-
-    try:
-        cur.execute("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS notices_fts USING fts5(
-                id, titre, projet, texte_complet,
-                content=notices, content_rowid=rowid
-            )
-        """)
-        conn.commit()
-    except Exception as e:
-        log.warning(f"FTS5 non disponible : {e} — recherche full-text désactivée")
-        _FTS_AVAILABLE = False
-
-    conn.close()
-    log.info("Base de données initialisée : %s", DB_PATH)
-
-
-def save_notices(notices: list) -> int:
-    if not notices:
-        return 0
-    conn = get_connection()
-    cur = conn.cursor()
-    inserted = 0
-    for n in notices:
-        try:
-            cur.execute(
-                """
-                INSERT OR IGNORE INTO notices
-                (id, bailleur, titre, projet, secteur, type_avis, mode_selection,
-                 langue, date_publication, date_limite, pays, lien, pertinence,
-                 texte_complet, actif)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
-                """,
-                (
-                    n.get("id"), n.get("bailleur"), n.get("titre"), n.get("projet"),
-                    n.get("secteur"), n.get("type_avis"), n.get("mode_selection"),
-                    n.get("langue"), n.get("date_publication"), n.get("date_limite"),
-                    n.get("pays"), n.get("lien"), n.get("pertinence"),
-                    n.get("texte_complet"),
-                ),
-            )
-            if cur.rowcount > 0:
-                inserted += 1
-        except Exception as e:
-            log.warning(f"Erreur insertion {n.get('id')} : {e}")
-
-    conn.commit()
-
-    if _FTS_AVAILABLE and inserted:
-        try:
-            cur.execute("INSERT INTO notices_fts(notices_fts) VALUES('rebuild')")
-            conn.commit()
-        except Exception as e:
-            log.debug(f"FTS rebuild : {e}")
-
-    conn.close()
-    return inserted
-
-
-def upsert_notices(notices: list) -> int:
-    """Insère ou met à jour des avis en base, clé de conflit = `id` (PK).
-
-    Contrairement à `save_notices` (INSERT OR IGNORE), un avis déjà présent
-    voit sa deadline et sa date de collecte rafraîchies, et est réactivé
-    (`actif=1`) — `mark_expired()` le repassera à 0 si la deadline est dépassée.
-    Utilisé par les sources qui republient des avis évolutifs (ex. TED).
-    """
-    if not notices:
-        return 0
-    conn = get_connection()
-    cur = conn.cursor()
-    affected = 0
-    for n in notices:
-        try:
-            cur.execute(
-                """
-                INSERT INTO notices
-                (id, bailleur, titre, projet, secteur, type_avis, mode_selection,
-                 langue, date_publication, date_limite, pays, lien, pertinence,
-                 texte_complet, actif)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
-                ON CONFLICT(id) DO UPDATE SET
-                    date_limite = excluded.date_limite,
-                    date_ajout  = datetime('now'),
-                    actif       = 1
-                """,
-                (
-                    n.get("id"), n.get("bailleur"), n.get("titre"), n.get("projet"),
-                    n.get("secteur"), n.get("type_avis"), n.get("mode_selection"),
-                    n.get("langue"), n.get("date_publication"), n.get("date_limite"),
-                    n.get("pays"), n.get("lien"), n.get("pertinence"),
-                    n.get("texte_complet"),
-                ),
-            )
-            affected += 1
-        except Exception as e:
-            log.warning(f"Erreur upsert {n.get('id')} : {e}")
-
-    conn.commit()
-
-    if _FTS_AVAILABLE and affected:
-        try:
-            cur.execute("INSERT INTO notices_fts(notices_fts) VALUES('rebuild')")
-            conn.commit()
-        except Exception as e:
-            log.debug(f"FTS rebuild : {e}")
-
-    conn.close()
-    return affected
-
-
-def mark_expired():
-    today = date.today().isoformat()
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE notices SET actif=0 WHERE date_limite < ? AND date_limite IS NOT NULL AND date_limite != ''",
-        (today,),
-    )
-    count = cur.rowcount
-    conn.commit()
-    conn.close()
-    if count:
-        log.info(f"{count} AO marqués expirés")
-
-
-def get_notices(filters: dict = None) -> list:
-    conn = get_connection()
-    cur = conn.cursor()
-    query = "SELECT * FROM notices WHERE actif = 1"
-    params = []
-
-    if filters:
-        if filters.get("bailleur"):
-            ph = ",".join("?" * len(filters["bailleur"]))
-            query += f" AND bailleur IN ({ph})"
-            params.extend(filters["bailleur"])
-        if filters.get("langue"):
-            ph = ",".join("?" * len(filters["langue"]))
-            query += f" AND langue IN ({ph})"
-            params.extend(filters["langue"])
-        if filters.get("pertinence"):
-            ph = ",".join("?" * len(filters["pertinence"]))
-            query += f" AND pertinence IN ({ph})"
-            params.extend(filters["pertinence"])
-        if filters.get("deadline_from"):
-            query += " AND date_limite >= ?"
-            params.append(filters["deadline_from"])
-        if filters.get("deadline_to"):
-            query += " AND date_limite <= ?"
-            params.append(filters["deadline_to"])
-
-    query += " ORDER BY date_limite ASC NULLS LAST"
-    cur.execute(query, params)
-    rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
-    return rows
-
-
-def get_stats() -> dict:
-    conn = get_connection()
-    cur = conn.cursor()
-    stats: dict = {"total": 0, "by_bailleur": {}, "by_langue": {}, "by_secteur": {}, "by_pertinence": {}}
-
-    cur.execute("SELECT COUNT(*) FROM notices WHERE actif=1")
-    stats["total"] = cur.fetchone()[0]
-
-    for row in cur.execute("SELECT bailleur, COUNT(*) FROM notices WHERE actif=1 GROUP BY bailleur"):
-        stats["by_bailleur"][row[0]] = row[1]
-    for row in cur.execute("SELECT langue, COUNT(*) FROM notices WHERE actif=1 GROUP BY langue"):
-        stats["by_langue"][row[0] or "Inconnu"] = row[1]
-    for row in cur.execute("SELECT secteur, COUNT(*) FROM notices WHERE actif=1 GROUP BY secteur"):
-        stats["by_secteur"][row[0] or "Autre"] = row[1]
-    for row in cur.execute("SELECT pertinence, COUNT(*) FROM notices WHERE actif=1 GROUP BY pertinence"):
-        stats["by_pertinence"][row[0] or "Inconnu"] = row[1]
-
-    conn.close()
+def get_stats(user) -> dict:
+    stats = {"total": 0, "by_bailleur": {}, "by_langue": {}, "by_secteur": {}, "by_pertinence": {}}
+    for n in get_notices(user):
+        stats["total"] += 1
+        for key, col, default in (("by_bailleur", "bailleur", "Autre"),
+                                  ("by_langue", "langue", "Inconnu"),
+                                  ("by_secteur", "secteur", "Autre"),
+                                  ("by_pertinence", "pertinence", "Inconnu")):
+            v = n.get(col) or default
+            stats[key][v] = stats[key].get(v, 0) + 1
     return stats
 
 
-def get_notice_by_id(notice_id: str) -> dict | None:
-    """Retourne une notice complète (avec texte_complet) par son ID."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM notices WHERE id = ?", (notice_id,))
-    row = cur.fetchone()
-    conn.close()
-    return dict(row) if row else None
+def get_notice_by_id(notice_id: str) -> "dict | None":
+    """Notice complète (avec texte_complet) — appelant déjà vérifié comme membre validé."""
+    rows = supa.service().select("veilleao_notices", {"select": "*", "id": eq(notice_id)})
+    return rows[0] if rows else None
 
 
-def get_setting(key: str) -> "str | None":
-    """Retourne la valeur d'un paramètre partagé."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM settings WHERE key = ?", (key,))
-    row = cur.fetchone()
-    conn.close()
-    return row[0] if row else None
+def batches_by_size(rows: list, max_bytes: int = MAX_BATCH_BYTES):
+    batch, size = [], 0
+    for row in rows:
+        b = len(json.dumps(row, ensure_ascii=False).encode("utf-8"))
+        if batch and size + b > max_bytes:
+            yield batch
+            batch, size = [], 0
+        batch.append(row)
+        size += b
+    if batch:
+        yield batch
 
 
-def set_setting(key: str, value: "str | None"):
-    """Crée ou met à jour un paramètre partagé (None = suppression)."""
-    conn = get_connection()
-    cur = conn.cursor()
-    if value is None:
-        cur.execute("DELETE FROM settings WHERE key = ?", (key,))
-    else:
-        cur.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
-    conn.commit()
-    conn.close()
+def save_notices(notices: list, refresh: bool = False, sb: "supa.Client | None" = None) -> int:
+    """Écrit les avis collectés. refresh=False : un AO existant n'est jamais écrasé ;
+    refresh=True (TED) : deadline et date de collecte mises à jour."""
+    if not notices:
+        return 0
+    sb = sb or supa.service()
+    rows = [{c: (n.get(c) if n.get(c) is not None else "") for c in UPSERT_COLS} for n in notices]
+    written = 0
+    for batch in batches_by_size(rows):
+        written += sb.rpc("veilleao_upsert_notices", {"p_rows": batch, "p_refresh": refresh}) or 0
+    return written
 
 
-def assign_notice(notice_id: str, assignee: str, assigned_by: str = None, note: str = None):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT OR REPLACE INTO assignments (notice_id, assignee, assigned_by, note, seen) VALUES (?,?,?,?,0)",
-        (notice_id, assignee, assigned_by, note),
-    )
-    conn.commit()
-    conn.close()
+def mark_expired(sb: "supa.Client | None" = None) -> int:
+    return (sb or supa.service()).rpc("veilleao_mark_expired") or 0
 
 
-def remove_assignment(notice_id: str, assignee: str):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM assignments WHERE notice_id=? AND assignee=?", (notice_id, assignee))
-    conn.commit()
-    conn.close()
+# ── Tri commun ──────────────────────────────────────────────────────────────
+
+def get_all_triage(user) -> dict:
+    """{"triage": {id: état}, "meta": {id: {"by": nom, "at": horodatage}}}."""
+    sb = supa.as_user(user.token)
+    rows = sb.select("veilleao_notices", {"select": "id,triage,triaged_by,triaged_at",
+                                          "triage": "not.is.null"}, all_rows=True)
+    names = {p["id"]: (p.get("full_name") or p.get("email"))
+             for p in sb.select("veilleao_profiles", {"select": "id,email,full_name"})}
+    return {"triage": {r["id"]: r["triage"] for r in rows},
+            "meta": {r["id"]: {"by": names.get(r.get("triaged_by")), "at": r.get("triaged_at")}
+                     for r in rows}}
 
 
-def get_all_assignments() -> dict:
-    """Retourne {notice_id: [{assignee, assigned_by, assigned_at, seen}]}"""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT notice_id, assignee, assigned_by, assigned_at, seen FROM assignments ORDER BY assigned_at DESC")
-    result: dict = {}
-    for row in cur.fetchall():
-        nid = row[0]
-        if nid not in result:
-            result[nid] = []
-        result[nid].append({"assignee": row[1], "assigned_by": row[2], "assigned_at": row[3], "seen": bool(row[4])})
-    conn.close()
-    return result
+def set_triage(user, notice_id: str, state: "str | None") -> bool:
+    if state is not None and state not in TRIAGE_STATES:
+        raise ValueError(f"État de tri invalide : {state}")
+    rows = supa.as_user(user.token).update("veilleao_notices", {"id": eq(notice_id)},
+                                           {"triage": state})
+    return bool(rows)
 
 
-def get_assignments_for(assignee: str) -> list:
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT notice_id, assigned_by, assigned_at, seen FROM assignments WHERE assignee=? ORDER BY assigned_at DESC",
-        (assignee,),
-    )
-    rows = [{"notice_id": r[0], "assigned_by": r[1], "assigned_at": r[2], "seen": bool(r[3])} for r in cur.fetchall()]
-    conn.close()
+# ── Réglages partagés ───────────────────────────────────────────────────────
+
+def get_setting(user, key: str):
+    rows = supa.as_user(user.token).select("veilleao_settings",
+                                           {"select": "value", "key": eq(key)})
+    return rows[0]["value"] if rows else None
+
+
+def set_setting(user, key: str, value) -> None:
+    supa.as_user(user.token).insert("veilleao_settings", [{"key": key, "value": value}],
+                                    on_conflict="key", resolution="merge-duplicates")
+
+
+# ── Équipe / profils ────────────────────────────────────────────────────────
+
+def list_team(user) -> list:
+    """Membres validés (liste d'assignation)."""
+    return supa.as_user(user.token).select(
+        "veilleao_profiles", {"select": "id,email,full_name,role", "status": "eq.approved",
+                              "order": "full_name.asc.nullslast,email.asc"})
+
+
+def list_profiles(admin) -> list:
+    return supa.as_user(admin.token).select(
+        "veilleao_profiles",
+        {"select": "id,email,full_name,role,status,requested_at,decided_at,decided_by",
+         "order": "requested_at.desc"}, all_rows=True)
+
+
+def update_profile(admin, profile_id: str, status: "str | None" = None,
+                   role: "str | None" = None) -> "dict | None":
+    body = {k: v for k, v in (("status", status), ("role", role)) if v is not None}
+    if not body:
+        return None
+    rows = supa.as_user(admin.token).update("veilleao_profiles", {"id": eq(profile_id)}, body)
+    return rows[0] if rows else None
+
+
+def get_profile(profile_id: str) -> "dict | None":
+    rows = supa.service().select("veilleao_profiles", {"select": "*", "id": eq(profile_id)})
+    return rows[0] if rows else None
+
+
+# ── Assignations ────────────────────────────────────────────────────────────
+
+def _names(user) -> dict:
+    return {p["id"]: (p.get("full_name") or p.get("email")) for p in list_team(user)}
+
+
+def get_all_assignments(user) -> dict:
+    """{notice_id: [{assignee, assignee_name, assigned_by, assigned_by_name, assigned_at, note, seen}]}"""
+    rows = supa.as_user(user.token).select(
+        "veilleao_assignments", {"select": "*", "order": "assigned_at.desc"}, all_rows=True)
+    names = _names(user)
+    out: dict = {}
+    for r in rows:
+        out.setdefault(r["notice_id"], []).append({
+            "assignee": r["assignee"], "assignee_name": names.get(r["assignee"]),
+            "assigned_by": r.get("assigned_by"), "assigned_by_name": names.get(r.get("assigned_by")),
+            "assigned_at": r.get("assigned_at"), "note": r.get("note"), "seen": r.get("seen")})
+    return out
+
+
+def assign_notice(user, notice_id: str, assignee_id: str, note: "str | None" = None) -> None:
+    supa.as_user(user.token).insert(
+        "veilleao_assignments", [{"notice_id": notice_id, "assignee": assignee_id, "note": note}])
+
+
+def remove_assignment(user, notice_id: str, assignee_id: str) -> bool:
+    return bool(supa.as_user(user.token).delete(
+        "veilleao_assignments", {"notice_id": eq(notice_id), "assignee": eq(assignee_id)}))
+
+
+def get_assignments_for(user) -> list:
+    rows = supa.as_user(user.token).select(
+        "veilleao_assignments", {"select": "notice_id,assigned_by,assigned_at,note,seen",
+                                 "assignee": eq(user.id), "order": "assigned_at.desc"})
+    names = _names(user)
+    for r in rows:
+        r["assigned_by_name"] = names.get(r.get("assigned_by"))
     return rows
 
 
-def mark_assignments_seen(assignee: str):
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE assignments SET seen=1 WHERE assignee=?", (assignee,))
-    conn.commit()
-    conn.close()
+def mark_assignments_seen(user) -> None:
+    supa.as_user(user.token).update("veilleao_assignments",
+                                    {"assignee": eq(user.id), "seen": "is.false"}, {"seen": True})
 
 
-def get_all_triage() -> dict:
-    """Retourne {notice_id: state} pour toutes les notices ayant un triage défini."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT id, triage FROM notices WHERE triage IS NOT NULL")
-    result = {row[0]: row[1] for row in cur.fetchall()}
-    conn.close()
-    return result
-
-
-def set_triage(notice_id: str, state: "str | None"):
-    """Met à jour l'état de triage d'une notice (None = non trié)."""
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("UPDATE notices SET triage = ? WHERE id = ?", (state, notice_id))
-    conn.commit()
-    conn.close()
-
-
-def get_last_refresh_info() -> dict:
-    conn = get_connection()
-    cur = conn.cursor()
-    result = {}
-    for row in cur.execute(
-        "SELECT bailleur, MAX(date_ajout) FROM notices GROUP BY bailleur"
-    ):
-        result[row[0]] = row[1]
-    conn.close()
-    return result
-
-
-# ── Cache des détails AO ──────────────────────────────────────────────────────
+# ── Cache des détails enrichis (clé serveur) ────────────────────────────────
 
 def get_notice_detail_cache(notice_id: str) -> "dict | None":
-    """Retourne le détail mis en cache pour une notice, ou None si absent / table inexistante."""
-    conn = get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT detail_json, fetched_at FROM notice_details WHERE notice_id = ?",
-            (notice_id,),
-        )
-        row = cur.fetchone()
-        if not row:
-            return None
-        data = json.loads(row[0])
-        data["_fetched_at"] = row[1]
-        return data
-    except Exception:
+    rows = supa.service().select("veilleao_notice_details",
+                                 {"select": "detail,fetched_at", "notice_id": eq(notice_id)})
+    if not rows:
         return None
-    finally:
-        conn.close()
+    data = dict(rows[0]["detail"] or {})
+    data["_fetched_at"] = rows[0]["fetched_at"]
+    return data
 
 
 def set_notice_detail_cache(notice_id: str, detail: dict) -> None:
-    """Enregistre (ou remplace) le détail d'une notice dans le cache SQLite."""
-    conn = get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT OR REPLACE INTO notice_details (notice_id, detail_json) VALUES (?, ?)",
-            (notice_id, json.dumps(detail, ensure_ascii=False)),
-        )
-        conn.commit()
-    finally:
-        conn.close()
+    supa.service().insert("veilleao_notice_details",
+                          [{"notice_id": notice_id, "detail": detail, "fetched_at": _now()}],
+                          on_conflict="notice_id", resolution="merge-duplicates")
 
 
 def clear_notice_detail_cache(notice_id: str) -> None:
-    """Supprime le cache détail d'une notice (forcer une relecture à la prochaine ouverture)."""
-    conn = get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute("DELETE FROM notice_details WHERE notice_id = ?", (notice_id,))
-        conn.commit()
-    finally:
-        conn.close()
+    supa.service().delete("veilleao_notice_details", {"notice_id": eq(notice_id)})
+
+
+# ── Journal des collectes ───────────────────────────────────────────────────
+
+def start_run(source: str, triggered_by: "str | None", sb: "supa.Client | None" = None) -> int:
+    rows = (sb or supa.service()).insert(
+        "veilleao_collect_runs", [{"source": source, "triggered_by": triggered_by}],
+        returning=True)
+    return rows[0]["id"]
+
+
+def last_success(source: str, sb: "supa.Client | None" = None) -> "datetime | None":
+    """Début de la dernière collecte réussie (terminée, sans erreur) de cette source."""
+    rows = (sb or supa.service()).select("veilleao_collect_runs", {
+        "select": "started_at", "source": eq(source), "finished_at": "not.is.null",
+        "error": "is.null", "order": "started_at.desc", "limit": 1})
+    return datetime.fromisoformat(rows[0]["started_at"]) if rows else None
+
+
+def finish_run(run_id: int, fetched: "int | None" = None, inserted: "int | None" = None,
+               error: "str | None" = None, sb: "supa.Client | None" = None) -> None:
+    (sb or supa.service()).update("veilleao_collect_runs", {"id": eq(run_id)},
+                                  {"finished_at": _now(), "fetched": fetched,
+                                   "inserted": inserted, "error": error})
+
+
+def collect_status(user) -> dict:
+    """Dernière exécution par source + indicateur « collecte en cours »."""
+    rows = supa.as_user(user.token).select(
+        "veilleao_collect_runs", {"select": "*", "order": "started_at.desc", "limit": 200})
+    last: dict = {}
+    for r in rows:
+        last.setdefault(r["source"], r)
+    cutoff = datetime.now(timezone.utc) - RUN_STALE_AFTER
+    running = any(r["finished_at"] is None
+                  and datetime.fromisoformat(r["started_at"]) > cutoff for r in rows)
+    finished = [r["finished_at"] for r in rows if r.get("finished_at")]
+    return {"is_running": running, "last_run": max(finished) if finished else None,
+            "sources": last}

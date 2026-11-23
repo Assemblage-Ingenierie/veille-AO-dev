@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/static/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<title>Guide de style — Veille AO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+/* Styles propres à cette page de démonstration uniquement */
+.sg-section { margin: var(--sp-6) 0 var(--sp-3); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ai-noir70); display: flex; align-items: center; gap: var(--sp-3); }
+.sg-section::after { content: ""; flex: 1; border-top: 1px dotted var(--ai-rouge); }
+.sg-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.sg-caption { font-size: var(--fs-xs); color: var(--ai-noir70); margin-top: var(--sp-2); }
+.sg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+@media (max-width: 768px) { .sg-grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- Sprite d'icônes SVG monochromes (traits 2 px, coins arrondis) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-np" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-pre" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+</svg>
+
+<div class="app">
+  <header class="app-header">
+    <button class="hamburger" type="button" aria-label="Ouvrir le menu" onclick="document.body.classList.toggle('sidebar-open')">
+      <svg class="icon" style="width:22px;height:22px"><use href="#i-menu"/></svg>
+    </button>
+    <img class="logo" src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
+    <span class="sep"></span>
+    <div class="app-title">Veille AO<small>Appels d'offres internationaux</small></div>
+    <div class="app-header-actions">
+      <span class="panel-meta">Dernière collecte <time>20/11/2026 06:02</time></span>
+      <button class="btn btn-secondary btn-sm" type="button"><svg class="icon"><use href="#i-refresh"/></svg>Actualiser</button>
+    </div>
+  </header>
+
+  <nav class="sidebar" aria-label="Navigation principale">
+    <div class="sidebar-label">Navigation</div>
+    <a class="sidebar-nav active" href="#" aria-current="page">Veille</a>
+    <a class="sidebar-nav" href="#">Analyse AO</a>
+    <a class="sidebar-nav" href="#">Offres pertinentes <span class="sidebar-badge">3</span></a>
+    <a class="sidebar-nav" href="#">Paramètres</a>
+    <a class="sidebar-nav" href="#">Administration</a>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-user">
+      <div class="sidebar-user-label">Connecté</div>
+      <div style="font-size:var(--fs-sm);font-weight:600">Prénom Nom</div>
+      <a href="#" style="font-size:var(--fs-xs);text-decoration:underline">Se déconnecter</a>
+    </div>
+  </nav>
+
+  <main class="app-content">
+    <div class="page-head">
+      <div>
+        <h1>Guide de style</h1>
+        <p>Maquette de la refonte — données fictives, page non liée à l'application.</p>
+      </div>
+    </div>
+
+    <!-- ═══ 1. Panneau de filtres ═══ -->
+    <div class="sg-section">Panneau de filtres</div>
+    <section class="panel" aria-label="Filtres">
+      <div class="panel-head">
+        <span class="panel-title">Filtres</span>
+        <button class="btn btn-ghost btn-sm" type="button"><svg class="icon"><use href="#i-reset"/></svg>Réinitialiser les filtres</button>
+      </div>
+      <div class="panel-body">
+        <div class="filter-row">
+          <span class="filter-label" data-toggle title="Tout cocher / décocher">Bailleur</span>
+          <div class="chip-group">
+            <label class="chip"><input type="checkbox" checked>Banque Mondiale</label>
+            <label class="chip"><input type="checkbox">PNUD</label>
+            <label class="chip"><input type="checkbox" checked>GIZ</label>
+            <label class="chip"><input type="checkbox" checked>BERD</label>
+            <label class="chip"><input type="checkbox" checked>AFD</label>
+            <label class="chip"><input type="checkbox" checked>UE (TED)</label>
+            <label class="chip"><input type="checkbox" checked>Expertise France</label>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label" data-toggle>Pertinence</span>
+          <div class="chip-group">
+            <label class="chip"><input type="checkbox" checked><span class="gauge" data-level="3"><i></i><i></i><i></i></span>Haute</label>
+            <label class="chip"><input type="checkbox" checked><span class="gauge" data-level="2"><i></i><i></i><i></i></span>Moyenne</label>
+            <label class="chip"><input type="checkbox" checked><span class="gauge" data-level="1"><i></i><i></i><i></i></span>À vérifier</label>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label" data-toggle>Tri</span>
+          <div class="chip-group">
+            <label class="chip"><input type="checkbox" checked>Non trié</label>
+            <label class="chip"><input type="checkbox" checked>Pré-tri</label>
+            <label class="chip"><input type="checkbox" checked>Pertinent</label>
+            <label class="chip"><input type="checkbox">Non pertinent</label>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Date limite</span>
+          <div class="sg-row">
+            <input class="date-input" type="date" value="2026-11-20" aria-label="Du">
+            <span class="muted">→</span>
+            <input class="date-input" type="date" aria-label="Au">
+          </div>
+        </div>
+      </div>
+      <!-- Mots-clés partagés : Paramètres (inclusion) et Exclusion -->
+      <div class="panel-body">
+        <div class="filter-row">
+          <span class="filter-label">Paramètres</span>
+          <div class="kw-line">
+            <input class="input kw-input" type="text" placeholder="Ajouter un mot-clé…" aria-label="Ajouter un mot-clé" data-target="kw-include">
+            <div class="chip-group" id="kw-include">
+              <span class="kw-chip">structure<button type="button" aria-label="Retirer structure">×</button></span>
+              <span class="kw-chip">parasismique<button type="button" aria-label="Retirer parasismique">×</button></span>
+              <span class="kw-chip">maîtrise d'œuvre<button type="button" aria-label="Retirer maîtrise d'œuvre">×</button></span>
+            </div>
+            <button class="btn btn-ghost btn-sm kw-reset" type="button">Réinitialiser</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Exclusion <span class="num" style="font-weight:400">(2)</span></span>
+          <div class="kw-line">
+            <input class="input kw-input" type="text" placeholder="Exclure un mot-clé…" aria-label="Exclure un mot-clé" data-target="kw-exclude">
+            <div class="chip-group" id="kw-exclude">
+              <span class="kw-chip kw-exclude">fourniture<button type="button" aria-label="Retirer fourniture">×</button></span>
+              <span class="kw-chip kw-exclude">véhicules<button type="button" aria-label="Retirer véhicules">×</button></span>
+            </div>
+            <button class="btn btn-ghost btn-sm kw-reset" type="button">Réinitialiser</button>
+          </div>
+        </div>
+        <p class="sg-caption" style="margin:var(--sp-2) 0 0">Listes communes à toute l'équipe. Entrée pour ajouter, × pour retirer. « Paramètres » ne garde que les AO contenant au moins un mot-clé ; « Exclusion » masque ceux qui en contiennent un.</p>
+      </div>
+    </section>
+
+    <!-- ═══ 2. Tableau Veille + interrupteur de tri ═══ -->
+    <div class="sg-section">Tableau de la page Veille</div>
+    <section class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Appels d'offres</span>
+        <span class="panel-meta"><span class="counter"><b>247</b> affichés</span> / <span class="num">1 312</span> en base</span>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="col-tri">Tri</th>
+              <th>Bailleur</th>
+              <th class="sorted-asc">Titre</th>
+              <th class="hide-md">Pays</th>
+              <th class="hide-sm">Pertinence</th>
+              <th class="hide-md">Publication</th>
+              <th>Date limite</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="tri-switch" role="group" aria-label="Tri de l'AO">
+                  <button class="tri-np" type="button" aria-pressed="false" aria-label="Non pertinent" title="Non pertinent"><svg class="icon"><use href="#i-np"/></svg><span class="label">Non pert.</span></button>
+                  <button class="tri-pre" type="button" aria-pressed="false" aria-label="Pré-tri" title="Pré-tri"><svg class="icon"><use href="#i-pre"/></svg><span class="label">Pré-tri</span></button>
+                </div>
+              </td>
+              <td><span class="badge">BM</span></td>
+              <td class="titre"><a href="#">Consultancy services for the structural assessment of public school buildings</a><span class="sub">Request for Expression of Interest · Anglais</span></td>
+              <td class="hide-md">Sénégal</td>
+              <td class="hide-sm"><span class="gauge" data-level="3" title="Haute"><i></i><i></i><i></i></span></td>
+              <td class="date hide-md">14/11/2026</td>
+              <td class="date"><span class="deadline urgent">24/11/2026</span></td>
+            </tr>
+            <tr class="triage-pre-tri">
+              <td>
+                <div class="tri-switch" role="group" aria-label="Tri de l'AO">
+                  <button class="tri-np" type="button" aria-pressed="false" aria-label="Non pertinent" title="Non pertinent"><svg class="icon"><use href="#i-np"/></svg><span class="label">Non pert.</span></button>
+                  <button class="tri-pre" type="button" aria-pressed="true" aria-label="Pré-tri" title="Pré-tri — trié par Prénom Nom le 18/11"><svg class="icon"><use href="#i-pre"/></svg><span class="label">Pré-tri</span></button>
+                </div>
+              </td>
+              <td><span class="badge">AFD</span></td>
+              <td class="titre"><a href="#">Maîtrise d'œuvre pour la réhabilitation de trois marchés couverts</a><span class="sub">Avis d'appel d'offres · Français</span></td>
+              <td class="hide-md">Côte d'Ivoire</td>
+              <td class="hide-sm"><span class="gauge" data-level="2" title="Moyenne"><i></i><i></i><i></i></span></td>
+              <td class="date hide-md">10/11/2026</td>
+              <td class="date">15/12/2026</td>
+            </tr>
+            <tr class="triage-non-pertinent">
+              <td>
+                <div class="tri-switch" role="group" aria-label="Tri de l'AO">
+                  <button class="tri-np" type="button" aria-pressed="true" aria-label="Non pertinent" title="Non pertinent — trié par Prénom Nom le 17/11"><svg class="icon"><use href="#i-np"/></svg><span class="label">Non pert.</span></button>
+                  <button class="tri-pre" type="button" aria-pressed="false" aria-label="Pré-tri" title="Pré-tri"><svg class="icon"><use href="#i-pre"/></svg><span class="label">Pré-tri</span></button>
+                </div>
+              </td>
+              <td><span class="badge">UE</span></td>
+              <td class="titre"><a href="#">Supply of laboratory equipment for the national water agency</a><span class="sub">Contract notice · Anglais</span></td>
+              <td class="hide-md">Viêt Nam</td>
+              <td class="hide-sm"><span class="gauge" data-level="1" title="À vérifier"><i></i><i></i><i></i></span></td>
+              <td class="date hide-md">05/11/2026</td>
+              <td class="date">02/01/2027</td>
+            </tr>
+            <tr class="triage-pertinent">
+              <td><span class="tag tag-pertinent" title="Pertinent — trié par Prénom Nom le 12/11 (modifiable depuis Offres pertinentes)"><svg class="icon" style="width:12px;height:12px"><use href="#i-star"/></svg>Pertinent</span></td>
+              <td><span class="badge">EF</span></td>
+              <td class="titre"><a href="#">Assistance technique au renforcement parasismique d'équipements publics</a><span class="sub">Contrat de prestation de services · Français</span></td>
+              <td class="hide-md">Haïti</td>
+              <td class="hide-sm"><span class="gauge" data-level="3" title="Haute"><i></i><i></i><i></i></span></td>
+              <td class="date hide-md">01/11/2026</td>
+              <td class="date">08/12/2026</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <p class="sg-caption">Ligne 1 non triée · ligne 2 pré-tri · ligne 3 non pertinent · ligne 4 déjà « Pertinent » (repère non cliquable). Cliquez sur l'interrupteur pour essayer : un clic applique, un second clic sur la même position annule.</p>
+
+    <!-- ═══ 3. Boutons, badges, étiquettes ═══ -->
+    <div class="sg-section">Boutons</div>
+    <div class="sg-row">
+      <button class="btn btn-primary" type="button">Action principale</button>
+      <button class="btn btn-secondary" type="button"><svg class="icon"><use href="#i-refresh"/></svg>Actualiser</button>
+      <button class="btn btn-outline" type="button"><svg class="icon"><use href="#i-ext"/></svg>Voir l'avis</button>
+      <button class="btn btn-ghost" type="button">Réinitialiser</button>
+      <button class="btn btn-primary" type="button" disabled>Désactivé</button>
+      <button class="btn btn-outline btn-sm" type="button">Petit</button>
+    </div>
+
+    <div class="sg-section">Badges bailleurs et étiquettes</div>
+    <div class="sg-row">
+      <span class="badge">BM</span><span class="badge">PNUD</span><span class="badge">GIZ</span><span class="badge">BERD</span>
+      <span class="badge">AFD</span><span class="badge">UE</span><span class="badge">EF</span>
+      <span class="badge">AFD<span class="n">42</span></span>
+    </div>
+    <div class="sg-row" style="margin-top:var(--sp-3)">
+      <span class="tag tag-pertinent"><svg class="icon" style="width:12px;height:12px"><use href="#i-star"/></svg>Pertinent</span>
+      <span class="tag tag-violet">Assigné</span>
+      <span class="tag">À venir</span>
+      <span class="tag tag-alerte">Expire dans 4 j</span>
+      <span class="sidebar-badge">3</span>
+    </div>
+
+    <!-- ═══ 4. Fiche Analyse AO ═══ -->
+    <div class="sg-section">Fiche Analyse AO</div>
+    <article class="ao-card">
+      <div class="ao-card-head">
+        <span class="badge">AFD</span>
+        <div class="title">Maîtrise d'œuvre pour la réhabilitation de trois marchés couverts
+          <small>Abidjan, Côte d'Ivoire · Réf. <span class="num">AFD-2026-0457</span></small></div>
+        <div class="actions">
+          <span class="tag tag-violet">Pré-tri</span>
+          <a class="btn btn-outline btn-sm" href="#"><svg class="icon"><use href="#i-ext"/></svg>Avis</a>
+        </div>
+      </div>
+      <div class="ao-card-body">
+        <aside class="spec">
+          <dl>
+            <dt>Publication</dt><dd>10/11/2026</dd>
+            <dt>Limite</dt><dd>15/12/2026</dd>
+            <dt>Type</dt><dd>Avis d'appel d'offres</dd>
+            <dt>Langue</dt><dd>Français</dd>
+            <dt>Pertinence</dt><dd><span class="gauge" data-level="2"><i></i><i></i><i></i></span> Moyenne</dd>
+          </dl>
+        </aside>
+        <div class="ao-card-content">
+          <div class="section-label">Mission</div>
+          <p>Études de diagnostic structurel, conception des renforcements et suivi des travaux de réhabilitation de trois marchés couverts. Texte d'exemple pour illustrer la densité de lecture.</p>
+          <div class="section-label" style="margin-top:var(--sp-3)">Mots-clés détectés</div>
+          <div class="sg-row"><span class="tag">réhabilitation</span><span class="tag">structure</span><span class="tag">maîtrise d'œuvre</span></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ═══ 5. Encadrés ═══ -->
+    <div class="sg-section">Encadrés</div>
+    <div class="sg-grid2">
+      <div class="note">Information — fond gris clair.</div>
+      <div class="note note-strong">Important — fond violet, texte blanc.</div>
+      <div class="note note-soft">Mise en avant douce — rouge clair, filet rouge.</div>
+      <div class="note note-context">Synthèse / contexte — gris très clair.</div>
+    </div>
+  </main>
+</div>
+
+<img class="ai-watermark" src="/static/sigle_A_rouge_HD.png" alt="" aria-hidden="true">
+
+<script>
+// Démonstration des mots-clés (local, sans enregistrement).
+document.addEventListener('click', ev => {
+  const x = ev.target.closest('.kw-chip button');
+  if (x) x.parentElement.remove();
+  const r = ev.target.closest('.kw-reset');
+  if (r) r.parentElement.querySelector('.chip-group').innerHTML = '';
+});
+document.querySelectorAll('.kw-input').forEach(inp => inp.addEventListener('keydown', ev => {
+  if (ev.key !== 'Enter' || !inp.value.trim()) return;
+  const chip = document.createElement('span');
+  chip.className = 'kw-chip' + (inp.dataset.target === 'kw-exclude' ? ' kw-exclude' : '');
+  chip.textContent = inp.value.trim();
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Retirer ' + inp.value.trim());
+  chip.append(b);
+  document.getElementById(inp.dataset.target).append(chip);
+  inp.value = '';
+}));
+
+// Démonstration de l'interrupteur à 2 positions (aucun appel réseau).
+document.querySelectorAll('.tri-switch').forEach(sw => {
+  sw.addEventListener('click', ev => {
+    const btn = ev.target.closest('button');
+    if (!btn) return;
+    const wasOn = btn.getAttribute('aria-pressed') === 'true';
+    sw.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    if (!wasOn) btn.setAttribute('aria-pressed', 'true');
+    const tr = sw.closest('tr');
+    tr.classList.remove('triage-pre-tri', 'triage-non-pertinent');
+    if (!wasOn) tr.classList.add(btn.classList.contains('tri-pre') ? 'triage-pre-tri' : 'triage-non-pertinent');
+  });
+});
+</script>
+</body>
+</html>

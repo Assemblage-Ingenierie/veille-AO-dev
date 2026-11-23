@@ -1,488 +1,394 @@
+"""Veille AO — API FastAPI (déployée sur Vercel, données dans Supabase INTERNAL).
+
+Droits par route (voir auth.py) :
+  * publique   : /api/config (valeurs publiques pour initialiser la connexion)
+  * connecté   : /api/me (crée la demande d'accès à la première visite)
+  * validé     : lecture des AO, tri, assignations, réglages partagés, détails
+  * admin      : collecte manuelle, comptes, test SMTP
+  * tâche planifiée (CRON_SECRET) : /api/cron/*
+"""
 import json
 import logging
-import smtplib
-import threading
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from database import (get_notices, get_stats, get_last_refresh_info, get_notice_by_id,
-                       get_all_triage, set_triage, get_setting, set_setting,
-                       assign_notice, remove_assignment, get_all_assignments,
-                       get_assignments_for, mark_assignments_seen,
-                       get_notice_detail_cache, set_notice_detail_cache, clear_notice_detail_cache)
-from config import STRONG_KEYWORDS, INFRA_KEYWORDS, KEYWORD_DISPLAY_GROUPS, TEAM_MEMBERS
+import auth
+import collector
+import config
+import database
+import mailer
+import notifications
+import supa
+from auth import User, admin_user, approved_user, cron_auth, current_user
+from config import INFRA_KEYWORDS, KEYWORD_DISPLAY_GROUPS, STRONG_KEYWORDS
 
 log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).parent
-STATIC_DIR = BASE_DIR / "static"
+PAGES_DIR = BASE_DIR / "public" if (BASE_DIR / "public").exists() else BASE_DIR / "static"
 
-app = FastAPI(title="Veille AO — AI-DEV", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="Veille AO — Assemblage ingénierie", version="2.0.0")
 
 
-# ── Gestion d'erreurs globale ─────────────────────────────────────────────────
-# Toute exception non rattrapée renvoie un JSON propre (et non un "Internal
-# Server Error" brut que le front n'arrive pas à parser -> "Unexpected token I").
+# ── Erreurs : toujours {"error": message, "code": …} en JSON ────────────────
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error(request: Request, exc: StarletteHTTPException):
+    detail = exc.detail
+    if isinstance(detail, dict):
+        body = {"error": detail.get("message", ""), "code": detail.get("code")}
+    else:
+        body = {"error": str(detail), "code": None}
+    return JSONResponse(body, status_code=exc.status_code, headers=getattr(exc, "headers", None))
+
+
+@app.exception_handler(supa.SupabaseError)
+async def _supabase_error(request: Request, exc: supa.SupabaseError):
+    if exc.status == 401:
+        status, msg = 401, "Session invalide ou expirée."
+    elif exc.status == 403 or exc.code == "42501":
+        status, msg = 403, "Action non autorisée."
+    elif exc.status == 404:
+        status, msg = 404, "Introuvable."
+    elif exc.code == "23505" or exc.status == 409:
+        status, msg = 409, "Cet élément existe déjà."
+    else:
+        status, msg = 502, "Base de données indisponible."
+    log.warning(f"Supabase {exc.status}/{exc.code} sur {request.url.path} : {exc.message}")
+    return JSONResponse({"error": msg}, status_code=status)
+
+
+@app.exception_handler(ValueError)
+async def _value_error(request: Request, exc: ValueError):
+    return JSONResponse({"error": str(exc)}, status_code=400)
+
+
 @app.exception_handler(Exception)
-async def _json_error_handler(request: Request, exc: Exception):
+async def _unexpected_error(request: Request, exc: Exception):
     log.error(f"Erreur non gérée sur {request.url.path} : {exc!r}")
-    detail = str(exc)
-    hint = None
-    low = detail.lower()
-    if "locked" in low or "i/o" in low or "disk" in low or "accès refusé" in low \
-            or "access" in low or "unable to open" in low:
-        hint = ("La base de données est inaccessible. Vérifiez qu'elle n'est pas "
-                "stockée sur Google Drive et qu'aucune autre instance ne tourne.")
-    return JSONResponse(
-        {"error": detail, "hint": hint, "path": str(request.url.path)},
-        status_code=500,
-    )
+    return JSONResponse({"error": "Erreur interne du serveur."}, status_code=500)
 
 
-# ── Static files ──────────────────────────────────────────────────────────────
+# ── Pages (servies directement par Vercel en production) ────────────────────
+
+def _page(name: str) -> FileResponse:
+    path = PAGES_DIR / f"{name}.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Page introuvable.")
+    return FileResponse(str(path))
+
 
 @app.get("/", include_in_schema=False)
-async def index():
-    return FileResponse(str(STATIC_DIR / "index.html"))
+async def page_index():
+    return _page("index")
 
 
-@app.get("/analyse", include_in_schema=False)
-async def analyse():
-    return FileResponse(str(STATIC_DIR / "analyse.html"))
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Icône d'onglet (sigle .A rouge) — demandée d'office par les navigateurs."""
+    return FileResponse(str(PAGES_DIR / "favicon.ico"), media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=604800"})
 
 
-@app.get("/pertinentes", include_in_schema=False)
-async def pertinentes():
-    return FileResponse(str(STATIC_DIR / "pertinentes.html"))
+@app.get("/{name}", include_in_schema=False)
+async def page_named(name: str):
+    if name not in {"analyse", "pertinentes", "params", "admin", "login"}:
+        raise HTTPException(status_code=404, detail="Page introuvable.")
+    return _page(name)
 
 
-@app.get("/params", include_in_schema=False)
-async def params_page():
-    return FileResponse(str(STATIC_DIR / "params.html"))
+@app.get("/static/{asset}", include_in_schema=False)
+async def static_asset(asset: str):
+    path = (PAGES_DIR / asset).resolve()
+    if PAGES_DIR.resolve() not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="Fichier introuvable.")
+    return FileResponse(str(path))
 
 
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# ── Connexion / compte ───────────────────────────────────────────────────────
+
+@app.get("/api/config")
+async def api_config():
+    """Valeurs publiques nécessaires au navigateur pour la connexion Supabase."""
+    return {"supabase_url": config.SUPABASE_URL,
+            "supabase_publishable_key": config.SUPABASE_PUBLISHABLE_KEY,
+            "app_url": config.APP_URL}
 
 
-# ── Email notifications ───────────────────────────────────────────────────────
-
-def _get_smtp_config() -> dict | None:
-    """Retourne la config SMTP depuis SQLite, ou None si non configurée."""
-    raw = get_setting("smtp_config")
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except Exception:
-        return None
-
-
-def _get_member_email(name: str) -> str:
-    """Retourne l'email d'un membre de l'équipe."""
-    raw = get_setting("team_members")
-    if raw:
+@app.get("/api/me")
+def api_me(user: User = Depends(current_user)):
+    # Première visite d'une personne non validée : on prévient les admins tout de
+    # suite (au mieux) ; la tâche planifiée rattrape sinon la file d'attente.
+    if user.status == "pending" and not user.admin_notified_at and user.requested_at:
         try:
-            members = json.loads(raw)
-        except Exception:
-            members = TEAM_MEMBERS
-    else:
-        members = TEAM_MEMBERS
-    for m in members:
-        if m.get("name") == name:
-            return m.get("email") or ""
-    return ""
+            age = datetime.now(timezone.utc) - datetime.fromisoformat(user.requested_at)
+            if age < timedelta(minutes=2):
+                notifications.notify_access_requests()
+                auth.forget_all()
+        except Exception as e:
+            log.warning(f"Notification immédiate de demande d'accès impossible : {e}")
+    return user.public()
 
 
-def _build_email(assignee: str, assigned_by: str, notice: dict) -> MIMEMultipart:
-    titre    = notice.get("titre", "—")
-    bailleur = notice.get("bailleur", "—")
-    deadline = notice.get("date_limite") or "—"
-    lien     = notice.get("lien") or ""
-    by_label = assigned_by or "Un collègue"
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"[Veille AO] Nouvel AO assigné : {titre[:70]}"
-
-    # Plain text
-    text_parts = [
-        f"Bonjour {assignee},",
-        "",
-        f"{by_label} vous a assigné un appel d'offres à analyser :",
-        "",
-        f"  Titre    : {titre}",
-        f"  Bailleur : {bailleur}",
-        f"  Deadline : {deadline}",
-        "",
-        "Voir vos assignations : http://localhost:8000/pertinentes",
-    ]
-    if lien:
-        text_parts.append(f"Lien source : {lien}")
-    text_parts += ["", "—", "Plateforme de veille AO — Assemblage ingénierie"]
-
-    # HTML
-    lien_btn = (
-        f'<a href="{lien}" style="color:#E30513;font-size:13px">Voir l\'avis source →</a>'
-        if lien else ""
-    )
-    html = f"""<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:20px;background:#F2F2F2;font-family:'Open Sans',sans-serif">
-<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
-  <div style="background:#E30513;padding:16px 24px">
-    <p style="color:#fff;margin:0;font-size:18px;font-weight:700">Nouvel AO assigné</p>
-    <p style="color:rgba(255,255,255,.8);margin:4px 0 0;font-size:12px">Plateforme de veille — Assemblage ingénierie</p>
-  </div>
-  <div style="padding:24px">
-    <p style="margin:0 0 12px">Bonjour <strong>{assignee}</strong>,</p>
-    <p style="margin:0 0 16px;color:#4D4D4D">{by_label} vous a assigné un appel d'offres à analyser :</p>
-    <div style="background:#F9E1E3;border-left:4px solid #E30513;padding:14px 18px;border-radius:0 4px 4px 0;margin-bottom:20px">
-      <p style="margin:0 0 6px;font-weight:700;color:#000">{titre}</p>
-      <p style="margin:0;font-size:13px;color:#4D4D4D">{bailleur} &nbsp;·&nbsp; Deadline : <strong>{deadline}</strong></p>
-    </div>
-    <a href="http://localhost:8000/pertinentes"
-       style="display:inline-block;background:#30323E;color:#fff;padding:10px 22px;text-decoration:none;border-radius:4px;font-weight:600;font-size:13px">
-      Voir sur la plateforme →
-    </a>
-    &nbsp;&nbsp;{lien_btn}
-  </div>
-  <div style="background:#F2F2F2;padding:10px 24px;font-size:11px;color:#4D4D4D;border-top:1px solid #DFE4E8">
-    Assemblage ingénierie · Plateforme de veille AO
-  </div>
-</div>
-</body>
-</html>"""
-
-    msg.attach(MIMEText("\n".join(text_parts), "plain", "utf-8"))
-    msg.attach(MIMEText(html, "html", "utf-8"))
-    return msg
-
-
-def _send_email_now(to_addr: str, msg: MIMEMultipart, smtp_cfg: dict) -> None:
-    """Envoie l'email via Gmail SMTP (appelé dans un thread)."""
-    user     = smtp_cfg.get("user", "")
-    password = smtp_cfg.get("password", "")
-    msg["From"] = user
-    msg["To"]   = to_addr
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
-        server.starttls()
-        server.login(user, password)
-        server.sendmail(user, to_addr, msg.as_string())
-    log.info(f"Email envoyé à {to_addr} — sujet : {msg['Subject']}")
-
-
-def _notify_assignee(assignee: str, assigned_by: str, notice: dict) -> None:
-    """Lance l'envoi en arrière-plan (ne bloque pas la réponse API)."""
-    smtp_cfg = _get_smtp_config()
-    if not smtp_cfg:
-        log.debug("Notifications email désactivées (SMTP non configuré)")
-        return
-    to_addr = _get_member_email(assignee)
-    if not to_addr:
-        log.debug(f"Pas d'email pour {assignee!r}, notification ignorée")
-        return
-    try:
-        msg = _build_email(assignee, assigned_by, notice)
-        threading.Thread(
-            target=_send_email_now,
-            args=(to_addr, msg, smtp_cfg),
-            daemon=True,
-        ).start()
-    except Exception as e:
-        log.warning(f"Impossible de préparer l'email : {e}")
-
-
-# ── API routes ────────────────────────────────────────────────────────────────
+# ── Avis ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/notices")
-async def api_notices(
-    bailleur: list[str] = Query(default=[]),
-    langue:   list[str] = Query(default=[]),
-    pertinence: list[str] = Query(default=[]),
-    deadline_from: str = Query(default=""),
-    deadline_to:   str = Query(default=""),
-):
-    filters = {}
-    if bailleur:
-        filters["bailleur"] = bailleur
-    if langue:
-        filters["langue"] = langue
-    if pertinence:
-        filters["pertinence"] = pertinence
-    if deadline_from:
-        filters["deadline_from"] = deadline_from
-    if deadline_to:
-        filters["deadline_to"] = deadline_to
-
-    notices = get_notices(filters if filters else None)
-
-    # Strip heavy texte_complet from the list response
-    for n in notices:
-        n.pop("texte_complet", None)
-        n.pop("date_ajout", None)
-
-    from scheduler import state as sched_state
-    return {
-        "total": len(notices),
-        "last_update": sched_state.get("last_run"),
-        "is_refreshing": sched_state.get("is_running", False),
-        "notices": notices,
-    }
+def api_notices(bailleur: list[str] = Query(default=[]),
+                langue: list[str] = Query(default=[]),
+                pertinence: list[str] = Query(default=[]),
+                deadline_from: str = Query(default=""),
+                deadline_to: str = Query(default=""),
+                user: User = Depends(approved_user)):
+    notices = database.get_notices(user, {"bailleur": bailleur, "langue": langue,
+                                          "pertinence": pertinence,
+                                          "deadline_from": deadline_from,
+                                          "deadline_to": deadline_to})
+    status = database.collect_status(user)
+    return {"total": len(notices), "last_update": status["last_run"],
+            "is_refreshing": status["is_running"], "notices": notices}
 
 
 @app.get("/api/notices/stats")
-async def api_stats():
-    return get_stats()
+def api_stats(user: User = Depends(approved_user)):
+    return database.get_stats(user)
 
 
-@app.get("/api/refresh/status")
-async def api_refresh_status():
-    from scheduler import state as sched_state
-    return {
-        "is_running": sched_state.get("is_running", False),
-        "last_run":   sched_state.get("last_run"),
-        "counts":     sched_state.get("counts", {}),
-        "errors":     sched_state.get("errors", []),
-    }
+@app.get("/api/keywords")
+def api_keywords(user: User = Depends(approved_user)):
+    return {"strong": STRONG_KEYWORDS, "infra": INFRA_KEYWORDS, "groups": KEYWORD_DISPLAY_GROUPS}
 
 
-@app.post("/api/refresh")
-async def api_refresh():
-    from scheduler import state as sched_state, collect_all_sources
-    if sched_state.get("is_running"):
-        return JSONResponse({"status": "already_running", "message": "Collecte déjà en cours"})
-    threading.Thread(target=collect_all_sources, daemon=True).start()
-    return {"status": "started", "message": "Collecte démarrée en arrière-plan"}
+# ── Collecte ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/collect/status")
+def api_collect_status(user: User = Depends(approved_user)):
+    return {**database.collect_status(user), "available": collector.list_sources()}
 
 
-@app.post("/api/refresh/ted")
-async def api_refresh_ted():
-    """Rafraîchit uniquement la source TED (le front lit toujours la base)."""
-    from scheduler import state as sched_state, collect_ted
-    if sched_state.get("is_running"):
-        return JSONResponse({"status": "already_running", "message": "Collecte déjà en cours"})
-    threading.Thread(target=collect_ted, daemon=True).start()
-    return {"status": "started", "message": "Collecte TED démarrée en arrière-plan"}
+@app.get("/api/refresh/status")      # ancien chemin, conservé pour le front actuel
+def api_refresh_status(user: User = Depends(approved_user)):
+    return api_collect_status(user)
 
 
-@app.get("/api/debug/afd")
-async def api_debug_afd():
-    """Diagnostic du scraper AFD : teste la connexion et l'analyse HTML."""
-    import requests
-    from sources.afd import _make_session, _parse_page, _total_pages, AFD_LIST
-    from datetime import date
-    from bs4 import BeautifulSoup
+@app.post("/api/collect/{source}")
+def api_collect(source: str, user: User = Depends(admin_user)):
+    if source not in collector.SOURCES:
+        raise HTTPException(status_code=404, detail=f"Source inconnue : {source}")
+    return collector.run_source(source, triggered_by=user.id)
 
-    result = {"url": AFD_LIST, "status_code": None, "content_length": None,
-              "tables_found": [], "notice_table": None, "total_pages": None,
-              "notices_page1": None, "error": None}
-    try:
-        session = _make_session()
-        r = session.get(AFD_LIST, timeout=30, allow_redirects=True)
-        result["status_code"] = r.status_code
-        result["content_length"] = len(r.content)
-        result["final_url"] = r.url
 
-        try:
-            soup = BeautifulSoup(r.content, "lxml")
-        except Exception:
-            soup = BeautifulSoup(r.content, "html.parser")
+@app.api_route("/api/cron/daily", methods=["GET", "POST"], dependencies=[Depends(cron_auth)])
+def api_cron_daily():
+    results = collector.run_all()
+    return {"collecte": results, "notification": notifications.notify_access_requests()}
 
-        # Recenser toutes les tables et leurs id/class
-        tables = soup.find_all("table")
-        result["tables_found"] = [
-            {"id": t.get("id"), "class": t.get("class"), "rows": len(t.find_all("tr"))}
-            for t in tables
-        ]
-        result["notice_table"] = soup.find("table", id="notice") is not None
-        result["total_pages"] = _total_pages(soup)
-        result["notices_page1"] = len(_parse_page(soup, date.today()))
 
-        # Extrait de texte autour de la pagination
-        for text in soup.stripped_strings:
-            if "de" in text.lower() and any(c.isdigit() for c in text):
-                result.setdefault("pagination_hints", []).append(text[:120])
-                if len(result.get("pagination_hints", [])) >= 5:
-                    break
+@app.api_route("/api/cron/notify-access", methods=["GET", "POST"],
+               dependencies=[Depends(cron_auth)])
+def api_cron_notify_access():
+    return notifications.notify_access_requests()
 
-    except Exception as e:
-        result["error"] = str(e)
 
-    return result
+# ── Détail enrichi d'un AO (cache serveur) ───────────────────────────────────
+
+_USEFUL = {"description", "description_section", "full_text", "criteria_section", "documents"}
 
 
 @app.get("/api/ao-detail/{notice_id}")
-async def api_ao_detail(notice_id: str, force: bool = Query(default=False)):
-    """Récupère les données enrichies d'un AO. Sert le cache SQLite si disponible."""
-    notice = get_notice_by_id(notice_id)
+def api_ao_detail(notice_id: str, force: bool = Query(default=False),
+                  user: User = Depends(approved_user)):
+    notice = database.get_notice_by_id(notice_id)
     if not notice:
-        return JSONResponse({"error": "Notice introuvable"}, status_code=404)
+        raise HTTPException(status_code=404, detail="Notice introuvable.")
 
-    _USEFUL = {"description", "description_section", "full_text",
-               "criteria_section", "documents"}
-
-    # Lecture du cache (sauf si force=true)
-    # Toute entrée existante (succès ou échec) stoppe le retry automatique.
-    # Seul force=true permet de relancer le fetch depuis la source.
+    # Toute entrée en cache (succès ou échec) évite de relire la source ;
+    # seul force=true relance la lecture.
     if not force:
-        cached = get_notice_detail_cache(notice_id)
+        cached = database.get_notice_detail_cache(notice_id)
         if cached is not None:
             if cached.get("_failed"):
-                # Échec mis en cache — on ne réessaie pas automatiquement
-                log.debug(f"Detail cache (failed) : {notice_id}")
-                return {"id": notice_id, "bailleur": notice.get("bailleur"),
-                        "_cached": True, "_failed": True,
-                        "_fetched_at": cached.get("_fetched_at")}
+                return {"id": notice_id, "bailleur": notice.get("bailleur"), "_cached": True,
+                        "_failed": True, "_fetched_at": cached.get("_fetched_at")}
             if any(cached.get(k) for k in _USEFUL):
-                log.debug(f"Detail cache hit : {notice_id}")
-                return {"id": notice_id, "bailleur": notice.get("bailleur"),
-                        **cached, "_cached": True}
+                return {"id": notice_id, "bailleur": notice.get("bailleur"), **cached,
+                        "_cached": True}
 
-    # Fetch depuis la source
     from sources.detail import fetch_detail
     try:
-        detail = fetch_detail(
-            notice_id=notice_id,
-            lien=notice.get("lien") or "",
-            bailleur=notice.get("bailleur") or "",
-            texte_complet=notice.get("texte_complet") or "",
-        )
+        detail = fetch_detail(notice_id=notice_id, lien=notice.get("lien") or "",
+                              bailleur=notice.get("bailleur") or "",
+                              texte_complet=notice.get("texte_complet") or "")
     except Exception as e:
-        log.error(f"ao-detail fetch error for {notice_id}: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
+        log.error(f"Lecture du détail {notice_id} impossible : {e}")
+        detail = {"error": str(e)}
 
-    # Mise en cache du résultat OU de l'échec
-    # → les deux évitent de refetcher inutilement à chaque rechargement
     has_useful = not detail.get("error") and any(detail.get(k) for k in _USEFUL)
-    cache_payload = detail if has_useful else {"_failed": True}
     try:
-        set_notice_detail_cache(notice_id, cache_payload)
-    except Exception as cache_err:
-        log.warning(f"Cache write failed for {notice_id}: {cache_err}")
-
+        database.set_notice_detail_cache(notice_id, detail if has_useful else {"_failed": True})
+    except Exception as e:
+        log.warning(f"Cache détail {notice_id} non écrit : {e}")
+    if not has_useful:
+        return {"id": notice_id, "bailleur": notice.get("bailleur"), "_failed": True}
     return {"id": notice_id, "bailleur": notice.get("bailleur"), **detail}
 
 
 @app.delete("/api/ao-detail/{notice_id}/cache")
-async def api_clear_detail_cache(notice_id: str):
-    """Invalide le cache détail d'un AO pour forcer une relecture à la prochaine ouverture."""
-    clear_notice_detail_cache(notice_id)
+def api_clear_detail_cache(notice_id: str, user: User = Depends(approved_user)):
+    database.clear_notice_detail_cache(notice_id)
     return {"notice_id": notice_id, "status": "cache_cleared"}
 
 
-@app.get("/api/triage")
-async def api_get_triage():
-    """Retourne l'état de triage de toutes les notices."""
-    return {"triage": get_all_triage()}
-
+# ── Tri commun ───────────────────────────────────────────────────────────────
 
 class TriageBody(BaseModel):
     state: Optional[str] = None
 
 
-@app.post("/api/triage/{notice_id}")
-async def api_set_triage(notice_id: str, body: TriageBody):
-    """Met à jour le triage d'une notice."""
-    valid = {"pertinent", "pre-tri", "non-pertinent", None}
-    if body.state not in valid:
-        return JSONResponse({"error": f"État invalide : {body.state}"}, status_code=400)
-    set_triage(notice_id, body.state)
-    return {"id": notice_id, "state": body.state}
+@app.get("/api/triage")
+def api_get_triage(user: User = Depends(approved_user)):
+    return database.get_all_triage(user)
 
+
+@app.post("/api/triage/{notice_id}")
+def api_set_triage(notice_id: str, body: TriageBody, user: User = Depends(approved_user)):
+    if not database.set_triage(user, notice_id, body.state):
+        raise HTTPException(status_code=404, detail="Notice introuvable.")
+    return {"id": notice_id, "state": body.state, "by": user.display_name}
+
+
+# ── Réglages partagés (mots-clés) ────────────────────────────────────────────
+# Compatibilité front : la valeur circule sous forme de chaîne JSON.
 
 class SettingBody(BaseModel):
     value: Optional[str] = None
 
 
+def _check_setting_key(key: str) -> None:
+    if key not in database.SHARED_SETTINGS:
+        raise HTTPException(status_code=404, detail="Réglage inconnu.")
+
+
 @app.get("/api/settings/{key}")
-async def api_get_setting(key: str):
-    """Retourne un paramètre partagé (ex. listes de mots-clés)."""
-    return {"key": key, "value": get_setting(key)}
+def api_get_setting(key: str, user: User = Depends(approved_user)):
+    _check_setting_key(key)
+    value = database.get_setting(user, key)
+    return {"key": key, "value": json.dumps(value, ensure_ascii=False) if value is not None else None}
 
 
 @app.post("/api/settings/{key}")
-async def api_set_setting(key: str, body: SettingBody):
-    """Crée ou met à jour un paramètre partagé."""
-    set_setting(key, body.value)
+def api_set_setting(key: str, body: SettingBody, user: User = Depends(approved_user)):
+    _check_setting_key(key)
+    try:
+        value = json.loads(body.value) if body.value else []
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Valeur JSON invalide.")
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise HTTPException(status_code=400, detail="La valeur doit être une liste de mots-clés.")
+    database.set_setting(user, key, value)
     return {"key": key, "value": body.value}
 
 
-def _get_team_members() -> list:
-    """Retourne les membres depuis SQLite si définis, sinon depuis config.py."""
-    import json
-    stored = get_setting("team_members")
-    if stored:
-        try:
-            return json.loads(stored)
-        except Exception:
-            pass
-    return TEAM_MEMBERS
-
+# ── Équipe et assignations ───────────────────────────────────────────────────
 
 @app.get("/api/team")
-async def api_team():
-    return {"members": _get_team_members()}
-
-
-class TeamBody(BaseModel):
-    members: list
-
-
-@app.post("/api/team")
-async def api_set_team(body: TeamBody):
-    import json
-    set_setting("team_members", json.dumps(body.members))
-    return {"members": body.members}
-
-
-@app.get("/api/assignments")
-async def api_get_assignments():
-    return {"assignments": get_all_assignments()}
+def api_team(user: User = Depends(approved_user)):
+    return {"members": [{"id": m["id"], "name": m.get("full_name") or m["email"],
+                         "email": m["email"], "role": m["role"]}
+                        for m in database.list_team(user)]}
 
 
 class AssignBody(BaseModel):
-    assignee: str
-    assigned_by: Optional[str] = None
+    assignee: str                    # identifiant du membre (profil validé)
     note: Optional[str] = None
 
 
+@app.get("/api/assignments")
+def api_get_assignments(user: User = Depends(approved_user)):
+    return {"assignments": database.get_all_assignments(user)}
+
+
 @app.post("/api/assignments/{notice_id}")
-async def api_assign(notice_id: str, body: AssignBody):
-    assign_notice(notice_id, body.assignee, body.assigned_by, body.note)
-    # Notification email en arrière-plan
-    notice = get_notice_by_id(notice_id) or {"id": notice_id}
-    _notify_assignee(body.assignee, body.assigned_by or "", notice)
-    return {"notice_id": notice_id, "assignee": body.assignee}
+def api_assign(notice_id: str, body: AssignBody, user: User = Depends(approved_user)):
+    database.assign_notice(user, notice_id, body.assignee, body.note)
+    email_sent = False
+    if mailer.smtp_configured():
+        try:
+            assignee = database.get_profile(body.assignee)
+            notice = database.get_notice_by_id(notice_id) or {"id": notice_id}
+            if assignee and assignee.get("email") and assignee["id"] != user.id:
+                mailer.send(assignee["email"], *mailer.assignment_email(
+                    assignee.get("full_name") or assignee["email"], user.display_name, notice))
+                email_sent = True
+        except Exception as e:
+            log.warning(f"Email d'assignation non envoyé : {e}")
+    return {"notice_id": notice_id, "assignee": body.assignee, "email_sent": email_sent}
 
 
 @app.delete("/api/assignments/{notice_id}")
-async def api_remove_assign(notice_id: str, body: AssignBody):
-    remove_assignment(notice_id, body.assignee)
-    return {"notice_id": notice_id, "assignee": body.assignee}
+async def api_remove_assign(notice_id: str, request: Request,
+                            assignee: Optional[str] = Query(default=None),
+                            user: User = Depends(approved_user)):
+    if not assignee:                 # ancien front : identifiant dans le corps JSON
+        try:
+            assignee = (await request.json()).get("assignee")
+        except Exception:
+            assignee = None
+    if not assignee:
+        raise HTTPException(status_code=400, detail="Paramètre « assignee » manquant.")
+    if not database.remove_assignment(user, notice_id, assignee):
+        raise HTTPException(status_code=404, detail="Assignation introuvable ou non autorisée.")
+    return {"notice_id": notice_id, "assignee": assignee}
 
 
-@app.get("/api/assignments/user/{assignee}")
-async def api_user_assignments(assignee: str, mark_seen: bool = Query(default=False)):
-    rows = get_assignments_for(assignee)
-    unread = sum(1 for r in rows if not r["seen"])
-    if mark_seen:
-        mark_assignments_seen(assignee)
+@app.get("/api/assignments/me")
+def api_my_assignments(mark_seen: bool = Query(default=False),
+                       user: User = Depends(approved_user)):
+    rows = database.get_assignments_for(user)
+    unread = sum(1 for r in rows if not r.get("seen"))
+    if mark_seen and unread:
+        database.mark_assignments_seen(user)
     return {"assignments": rows, "unread": unread}
+
+
+@app.get("/api/assignments/user/{ignored}")      # ancien chemin : toujours « mes » assignations
+def api_user_assignments(ignored: str, mark_seen: bool = Query(default=False),
+                         user: User = Depends(approved_user)):
+    return api_my_assignments(mark_seen, user)
+
+
+# ── Administration ───────────────────────────────────────────────────────────
+
+class ProfileUpdate(BaseModel):
+    status: Optional[str] = None     # approved | rejected | revoked | pending
+    role: Optional[str] = None       # user | admin
+
+
+@app.get("/api/admin/users")
+def api_admin_users(admin: User = Depends(admin_user)):
+    return {"users": database.list_profiles(admin)}
+
+
+@app.post("/api/admin/users/{profile_id}")
+def api_admin_update_user(profile_id: str, body: ProfileUpdate, admin: User = Depends(admin_user)):
+    if body.status is not None and body.status not in ("pending", "approved", "rejected", "revoked"):
+        raise HTTPException(status_code=400, detail="Statut invalide.")
+    if body.role is not None and body.role not in ("user", "admin"):
+        raise HTTPException(status_code=400, detail="Rôle invalide.")
+    if profile_id == admin.id and ((body.status not in (None, "approved"))
+                                   or (body.role not in (None, "admin"))):
+        raise HTTPException(status_code=400,
+                            detail="Vous ne pouvez pas retirer vos propres droits d'administration.")
+    updated = database.update_profile(admin, profile_id, status=body.status, role=body.role)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Compte introuvable.")
+    auth.forget_all()
+    return {"user": updated}
 
 
 class SmtpTestBody(BaseModel):
@@ -490,49 +396,12 @@ class SmtpTestBody(BaseModel):
 
 
 @app.post("/api/smtp/test")
-async def api_smtp_test(body: SmtpTestBody):
-    """Envoie un email de test pour vérifier la configuration SMTP."""
-    smtp_cfg = _get_smtp_config()
-    if not smtp_cfg:
-        return JSONResponse({"ok": False, "error": "SMTP non configuré"}, status_code=400)
-    if not body.to:
-        return JSONResponse({"ok": False, "error": "Adresse destinataire manquante"}, status_code=400)
+def api_smtp_test(body: SmtpTestBody, admin: User = Depends(admin_user)):
+    if not mailer.smtp_configured():
+        raise HTTPException(status_code=400,
+                            detail="SMTP non configuré (variables SMTP_USER / SMTP_PASSWORD).")
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "[Veille AO] Test de configuration email"
-        msg.attach(MIMEText(
-            "Félicitations ! Votre configuration email fonctionne correctement.\n\n"
-            "— Plateforme de veille AO · Assemblage ingénierie",
-            "plain", "utf-8"
-        ))
-        msg.attach(MIMEText(
-            """<!DOCTYPE html><html><body style="font-family:sans-serif;padding:20px">
-            <div style="max-width:480px;background:#fff;border:1px solid #DFE4E8;border-radius:6px;overflow:hidden">
-              <div style="background:#E30513;padding:14px 20px">
-                <p style="color:#fff;margin:0;font-weight:700">Test de configuration email ✓</p>
-              </div>
-              <div style="padding:20px">
-                <p>Félicitations ! Votre configuration email fonctionne correctement.</p>
-                <p style="color:#4D4D4D;font-size:13px">Les notifications d'assignation seront envoyées automatiquement.</p>
-              </div>
-              <div style="background:#F2F2F2;padding:10px 20px;font-size:11px;color:#4D4D4D">
-                Plateforme de veille AO · Assemblage ingénierie
-              </div>
-            </div></body></html>""",
-            "html", "utf-8"
-        ))
-        _send_email_now(body.to, msg, smtp_cfg)
-        return {"ok": True, "message": f"Email envoyé à {body.to}"}
-    except smtplib.SMTPAuthenticationError:
-        return JSONResponse({"ok": False, "error": "Authentification échouée — vérifiez l'adresse et le mot de passe d'application."}, status_code=400)
+        mailer.send(body.to, *mailer.test_email())
     except Exception as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
-
-
-@app.get("/api/keywords")
-async def api_keywords():
-    return {
-        "strong": STRONG_KEYWORDS,
-        "infra":  INFRA_KEYWORDS,
-        "groups": KEYWORD_DISPLAY_GROUPS,
-    }
+        raise HTTPException(status_code=502, detail=f"Envoi impossible : {e}")
+    return {"ok": True, "message": f"Email envoyé à {body.to}"}

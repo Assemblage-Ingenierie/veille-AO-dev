@@ -134,14 +134,11 @@ def _parse_page(soup, today: date) -> list:
 def _make_session():
     """Crée une session requests avec proxy système (WinINET/env vars)."""
     import requests
-    import urllib3
 
     session = requests.Session()
     session.headers.update(_HEADERS)
-    # Le certificat de afd.dgmarket.com n'est pas vérifié par le bundle certifi
-    # (chaîne intermédiaire absente) alors que Chrome l'accepte via le magasin Windows.
-    session.verify = False
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    # Vérification SSL standard : le certificat de afd.dgmarket.com est valide
+    # (test de faisabilité Vercel du 17/11/2026) — plus de verify=False.
 
     # Récupérer les proxies système (registre Windows / variables d'environnement)
     sys_proxies = urllib.request.getproxies()

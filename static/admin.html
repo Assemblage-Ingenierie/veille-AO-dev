@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr" data-auth="admin">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/static/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<title>Administration — Veille AO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+<script src="/static/auth.js"></script>
+<style>
+/* ── Spécifique à la page Administration ── */
+.app-content > * { max-width: 1000px; }
+.panel-list .data-table thead th { cursor: default; }
+.panel-list .empty { font-size: var(--fs-sm); color: var(--ai-noir70); padding: var(--sp-3) var(--sp-4); }
+.count { min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ai-violet); color: var(--ai-blanc);
+  font-size: var(--fs-xs); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.count.alert { background: var(--ai-rouge); }
+.who-name { font-weight: 600; }
+.who-mail { font-size: var(--fs-sm); color: var(--ai-noir70); }
+.data-table .muted { font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.inline-form { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-top: var(--sp-3); }
+.inline-form .input { flex: 1; min-width: 220px; }
+.status { font-size: var(--fs-sm); margin-top: var(--sp-2); min-height: 1em; }
+.status.ok { color: var(--ai-violet); font-weight: 600; }
+.status.err { color: var(--ai-rouge); font-weight: 600; }
+code { font-size: var(--fs-sm); background: var(--ai-blanc); padding: 0 4px; border-radius: var(--radius); }
+@media (max-width: 768px) {
+  .panel-list thead { display: none; }
+  .panel-list tr { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--ai-gris); }
+  .panel-list .data-table tbody td { border: 0; padding: 0; background: none !important; }
+  .actions { justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- Icônes SVG monochromes -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-np" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-pre" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></symbol>
+</svg>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="app">
+
+<header class="app-header">
+  <button class="hamburger" type="button" onclick="toggleSidebar()" aria-label="Ouvrir le menu">
+    <svg class="icon" style="width:22px;height:22px"><use href="#i-menu"/></svg>
+  </button>
+  <img class="logo" src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
+  <span class="sep"></span>
+  <div class="app-title">Veille AO<small>Plateforme de veille · AO DEV</small></div>
+  <div class="app-header-actions">
+    <a href="/pertinentes" class="header-notif" aria-label="Offres pertinentes qui me sont assignées">
+      <svg class="icon"><use href="#i-bell"/></svg>
+      <span class="sidebar-badge" id="mobile-badge" style="display:none"></span>
+    </a>
+  </div>
+</header>
+
+<nav class="sidebar" aria-label="Navigation principale">
+  <div class="sidebar-label">Navigation</div>
+  <a class="sidebar-nav" href="/">Veille</a>
+  <a class="sidebar-nav" href="/analyse">Analyse AO</a>
+  <a class="sidebar-nav" href="/pertinentes">Offres pertinentes
+    <span class="sidebar-badge" id="assign-badge" style="display:none">0</span>
+  </a>
+  <a class="sidebar-nav" href="/params">Paramètres</a>
+  <a class="sidebar-nav active" href="/admin" aria-current="page">Administration</a>
+  <div class="sidebar-spacer"></div>
+  <div class="sidebar-user"></div>
+</nav>
+
+<main class="app-content">
+  <div class="page-head">
+    <div>
+      <h1>Administration</h1>
+      <p>Accès à la plateforme, emails et collecte des appels d'offres</p>
+    </div>
+  </div>
+
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Demandes d'accès en attente</span>
+      <span class="count" id="count-pending">0</span>
+    </div>
+    <div class="table-wrap" id="list-pending"><div class="empty">Chargement…</div></div>
+  </section>
+
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Membres</span>
+      <span class="count" id="count-approved">0</span>
+    </div>
+    <div class="table-wrap" id="list-approved"><div class="empty">Chargement…</div></div>
+  </section>
+
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Accès refusés ou révoqués</span>
+      <span class="count" id="count-blocked">0</span>
+    </div>
+    <div class="table-wrap" id="list-blocked"><div class="empty">Chargement…</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><span class="panel-title">Emails</span></div>
+    <div class="panel-body">
+      <div class="note note-context">
+        Les notifications (assignations, demandes d'accès) partent du compte configuré dans les
+        variables d'environnement Vercel <code>SMTP_USER</code> / <code>SMTP_PASSWORD</code>.
+        Au plus <b>2 emails par heure</b> pour les demandes d'accès : au-delà, elles sont regroupées
+        dans l'email suivant.
+      </div>
+      <form class="inline-form" id="form-smtp">
+        <input type="email" class="input" id="smtp-to" required placeholder="destinataire du test" aria-label="Destinataire de l'email de test">
+        <button class="btn btn-outline" type="submit" id="btn-smtp"><svg class="icon"><use href="#i-mail"/></svg>Envoyer un email de test</button>
+      </form>
+      <div class="status" id="smtp-status" role="status"></div>
+    </div>
+  </section>
+
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Journal des collectes</span>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="loadCollect()"><svg class="icon"><use href="#i-refresh"/></svg>Rafraîchir</button>
+    </div>
+    <div class="table-wrap" id="list-collect"><div class="empty">Chargement…</div></div>
+  </section>
+</main>
+
+</div><!-- /.app -->
+
+<img src="/static/sigle_A_rouge_HD.png" alt="" class="ai-watermark" aria-hidden="true">
+<script>
+'use strict';
+
+function toggleSidebar(){ document.body.classList.toggle('sidebar-open') }
+function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+function fmtTs(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+}
+
+let users = [];
+const me = () => VeilleAuth.user;
+
+async function loadUsers(){
+  const r = await fetch('/api/admin/users');
+  const d = await r.json();
+  if(!r.ok){ throw new Error(d.error || ('HTTP ' + r.status)); }
+  users = d.users || [];
+  render();
+}
+
+function who(u){
+  return `<div class="who-name">${esc(u.full_name || u.email)}</div><div class="who-mail">${esc(u.email)}</div>`;
+}
+
+function btn(label, cls, id, body, confirmText){
+  const data = esc(JSON.stringify(body));
+  return `<button class="btn ${cls}" type="button" data-id="${esc(id)}" data-body="${data}"`
+       + (confirmText ? ` data-confirm="${esc(confirmText)}"` : '') + `>${esc(label)}</button>`;
+}
+
+function table(rows, cols){
+  if(!rows.length) return '';
+  return `<table class="data-table"><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+function render(){
+  const pending = users.filter(u => u.status === 'pending');
+  const approved = users.filter(u => u.status === 'approved');
+  const blocked = users.filter(u => u.status === 'rejected' || u.status === 'revoked');
+
+  document.getElementById('count-pending').textContent = pending.length;
+  document.getElementById('count-pending').classList.toggle('alert', pending.length > 0);
+  document.getElementById('count-approved').textContent = approved.length;
+  document.getElementById('count-blocked').textContent = blocked.length;
+
+  document.getElementById('list-pending').innerHTML = pending.length ? table(pending.map(u => `<tr>
+      <td>${who(u)}</td>
+      <td class="muted">demandé le ${fmtTs(u.requested_at)}</td>
+      <td><div class="actions">
+        ${btn('Valider', 'btn-primary', u.id, {status:'approved'})}
+        ${btn('Refuser', 'btn-danger', u.id, {status:'rejected'}, `Refuser l'accès à ${u.email} ?`)}
+      </div></td></tr>`), ['Personne', 'Demande', '']) : '<div class="empty">Aucune demande en attente.</div>';
+
+  document.getElementById('list-approved').innerHTML = approved.length ? table(approved.map(u => {
+    const self = u.id === me().id;
+    const roleBtn = self ? '' : (u.role === 'admin'
+      ? btn('Retirer admin', 'btn-outline', u.id, {role:'user'}, `Retirer les droits d'administration à ${u.email} ?`)
+      : btn('Passer admin', 'btn-outline', u.id, {role:'admin'}, `Donner les droits d'administration à ${u.email} ?`));
+    const revokeBtn = self ? '<span class="muted">(vous)</span>'
+      : btn('Révoquer', 'btn-danger', u.id, {status:'revoked'}, `Révoquer l'accès de ${u.email} ?`);
+    return `<tr>
+      <td>${who(u)}</td>
+      <td><span class="tag ${u.role === 'admin' ? 'tag-violet' : ''}">${u.role === 'admin' ? 'Admin' : 'Membre'}</span></td>
+      <td class="muted">validé le ${fmtTs(u.decided_at)}</td>
+      <td><div class="actions">${roleBtn}${revokeBtn}</div></td></tr>`;
+  }), ['Personne', 'Rôle', 'Validation', '']) : '<div class="empty">Aucun membre.</div>';
+
+  document.getElementById('list-blocked').innerHTML = blocked.length ? table(blocked.map(u => `<tr>
+      <td>${who(u)}</td>
+      <td><span class="tag tag-alerte">${u.status === 'rejected' ? 'Refusé' : 'Révoqué'}</span></td>
+      <td class="muted">le ${fmtTs(u.decided_at)}</td>
+      <td><div class="actions">${btn('Réactiver', 'btn-outline', u.id, {status:'approved'}, `Rétablir l'accès de ${u.email} ?`)}</div></td></tr>`),
+    ['Personne', 'Statut', 'Décision', '']) : '<div class="empty">Aucun.</div>';
+}
+
+document.addEventListener('click', async (ev) => {
+  const b = ev.target.closest('button[data-id]');
+  if(!b) return;
+  if(b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+  b.disabled = true;
+  try{
+    const r = await fetch(`/api/admin/users/${encodeURIComponent(b.dataset.id)}`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: b.dataset.body,
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    await loadUsers();
+  }catch(e){
+    alert('Action impossible : ' + e.message);
+    b.disabled = false;
+  }
+});
+
+document.getElementById('form-smtp').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const st = document.getElementById('smtp-status');
+  const to = document.getElementById('smtp-to').value.trim();
+  st.className = 'status'; st.textContent = 'Envoi en cours…';
+  document.getElementById('btn-smtp').disabled = true;
+  try{
+    const r = await fetch('/api/smtp/test', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({to}),
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    st.className = 'status ok'; st.textContent = 'Envoyé : ' + d.message;
+  }catch(e){
+    st.className = 'status err'; st.textContent = 'Échec : ' + e.message;
+  }finally{
+    document.getElementById('btn-smtp').disabled = false;
+  }
+});
+
+async function loadCollect(){
+  const box = document.getElementById('list-collect');
+  try{
+    const r = await fetch('/api/collect/status');
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    const rows = (d.available || []).map(s => {
+      const run = (d.sources || {})[s.key];
+      let res = '<span class="muted">jamais collectée</span>';
+      if(run && !run.finished_at) res = '<span class="tag">en cours…</span>';
+      else if(run && run.error) res = `<span class="tag tag-alerte" title="${esc(run.error)}">Erreur</span> <span class="muted">${esc(run.error.slice(0, 80))}</span>`;
+      else if(run) res = `<span class="tag">OK</span> <span class="muted">${run.fetched ?? 0} lus · ${run.inserted ?? 0} nouveaux</span>`;
+      return `<tr><td class="who-name">${esc(s.label)}</td><td class="muted">${run ? fmtTs(run.started_at) : '—'}</td>
+        <td>${run && !run.triggered_by ? '<span class="muted">automatique</span>' : (run ? '<span class="muted">manuelle</span>' : '')}</td>
+        <td>${res}</td></tr>`;
+    });
+    box.innerHTML = table(rows, ['Source', 'Dernière collecte', 'Type', 'Résultat']) || '<div class="empty">Aucune source.</div>';
+  }catch(e){
+    box.innerHTML = `<div class="empty">Journal indisponible : ${esc(e.message)}</div>`;
+  }
+}
+
+VeilleAuth.onReady(async () => {
+  document.getElementById('smtp-to').value = me().email;
+  try{ await loadUsers(); }
+  catch(e){ document.getElementById('list-pending').innerHTML = `<div class="empty">Erreur : ${esc(e.message)}</div>`; }
+  loadCollect();
+});
+</script>
+</body>
+</html>
