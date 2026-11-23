@@ -10,200 +10,147 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
 <script src="/static/auth.js"></script>
 <style>
-:root{
-  --ai-rouge:#E30513; --ai-violet:#30323E; --ai-gris:#DFE4E8; --ai-rouge-clair:#F9E1E3;
-  --ai-gris-clair:#F2F2F2; --ai-noir70:#4D4D4D; --surface:#FFFFFF; --border:#DFE4E8;
-  --radius:4px; --shadow:0 1px 4px rgba(0,0,0,.09);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-clair);color:#000;font-size:13.5px;line-height:1.5}
-
-/* ── Sidebar (identique aux autres pages) ── */
-.layout-wrapper{display:flex;min-height:100vh}
-.sidebar{width:175px;flex-shrink:0;background:var(--ai-gris);position:sticky;top:0;height:100vh;overflow-y:auto;
-  display:flex;flex-direction:column;border-right:1px solid #CDD2D6}
-.sidebar-brand{padding:1rem 1rem .85rem;border-bottom:1px solid #CDD2D6;display:flex;flex-direction:column;gap:.45rem}
-.sidebar-brand img{width:100%;height:auto;max-width:130px}
-.sidebar-brand-sub{font-size:.68rem;color:var(--ai-noir70);line-height:1.35}
-.sidebar-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ai-noir70);padding:.85rem 1rem .25rem}
-.sidebar-nav{display:flex;align-items:center;padding:.6rem 1rem;font-size:.82rem;font-weight:600;color:var(--ai-violet);
-  text-decoration:none;transition:background .12s;border-left:3px solid transparent;line-height:1.2}
-.sidebar-nav:hover{background:rgba(48,50,62,.1)}
-.sidebar-nav.active{color:var(--ai-rouge);border-left-color:var(--ai-rouge);background:rgba(227,5,19,.06)}
-.sidebar-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;
-  background:var(--ai-rouge);color:#fff;border-radius:8px;font-size:.62rem;font-weight:700;margin-left:auto;flex-shrink:0}
-.sidebar-spacer{flex:1}
-.sidebar-user{padding:.55rem 1rem .5rem;border-top:1px solid #CDD2D6}
-.sidebar-user-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ai-noir70);margin-bottom:.3rem}
-.layout-content{flex:1;min-width:0}
-
-/* ── Contenu ── */
-.container{max-width:860px;margin:0 auto;padding:1.4rem 1rem}
-.page-title{margin-bottom:1.4rem}
-.page-title h2{font-size:1.1rem;font-weight:700;color:var(--ai-violet)}
-.page-title p{font-size:.8rem;color:var(--ai-noir70);margin-top:.2rem}
-.section-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
-  margin-bottom:1.2rem;overflow:hidden}
-.section-card-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.7rem 1rem;
-  border-bottom:1px solid var(--border);background:var(--ai-gris-clair)}
-.section-card-head h3{font-size:.88rem;font-weight:700;color:var(--ai-violet)}
-.count{font-size:.72rem;font-weight:700;background:var(--ai-violet);color:#fff;border-radius:10px;padding:0 .5rem}
-.count.alert{background:var(--ai-rouge)}
-.section-card-body{padding:.6rem 1rem 1rem}
-.empty{font-size:.8rem;color:var(--ai-noir70);font-style:italic;padding:.5rem 0}
-
-table{width:100%;border-collapse:collapse}
-th{text-align:left;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ai-noir70);
-  padding:.45rem .4rem;border-bottom:2px solid var(--border)}
-td{padding:.5rem .4rem;border-bottom:1px solid var(--ai-gris-clair);vertical-align:middle;font-size:.82rem}
-tr:last-child td{border-bottom:none}
-.who-name{font-weight:600}
-.who-mail{font-size:.74rem;color:var(--ai-noir70)}
-.muted{font-size:.74rem;color:var(--ai-noir70);white-space:nowrap}
-.actions{display:flex;gap:.35rem;justify-content:flex-end;flex-wrap:wrap}
-.tag{display:inline-block;font-size:.68rem;font-weight:700;padding:.05rem .45rem;border-radius:3px;
-  background:var(--ai-gris);color:var(--ai-violet)}
-.tag.admin{background:var(--ai-violet);color:#fff}
-.tag.rejected,.tag.revoked{background:var(--ai-rouge-clair);color:#8a0a12}
-.tag.ok{background:#ecfdf3;color:#166534}
-.tag.err{background:var(--ai-rouge-clair);color:#8a0a12}
-
-.btn{padding:.28rem .7rem;border-radius:3px;cursor:pointer;font-size:.76rem;font-weight:600;font-family:inherit;
-  transition:all .12s;border:1px solid transparent;white-space:nowrap}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-primary{background:var(--ai-rouge);color:#fff}
-.btn-primary:hover:not(:disabled){background:#c00411}
-.btn-outline{background:transparent;border-color:var(--border);color:#000}
-.btn-outline:hover:not(:disabled){border-color:var(--ai-violet);color:var(--ai-violet)}
-.btn-danger{background:transparent;border-color:var(--ai-rouge-clair);color:#b4060f}
-.btn-danger:hover:not(:disabled){background:var(--ai-rouge-clair)}
-
-.inline-form{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
-.inline-form input{flex:1;min-width:220px;padding:.35rem .6rem;border:1px solid var(--border);border-radius:3px;
-  font-family:inherit;font-size:.85rem}
-.status{font-size:.78rem;margin-top:.6rem;min-height:1em}
-.status.ok{color:#16a34a}
-.status.err{color:var(--ai-rouge)}
-.info-box{background:var(--ai-gris-clair);border-radius:3px;padding:.6rem .8rem;font-size:.78rem;color:var(--ai-noir70);
-  border-left:3px solid var(--ai-violet);line-height:1.55;margin-bottom:.8rem}
-.info-box code{font-size:.75rem;background:#fff;padding:0 .25rem;border-radius:2px}
-
-.ai-watermark{position:fixed;bottom:16px;right:16px;width:48px;opacity:.18;pointer-events:none;z-index:100}
-
-/* ── Mobile ── */
-.mobile-header{display:none;align-items:center;height:48px;background:var(--ai-gris);border-bottom:1px solid #CDD2D6;
-  padding:0 .75rem;position:fixed;top:0;left:0;right:0;z-index:190;gap:.5rem}
-.mobile-header-title{flex:1;text-align:center;font-size:.84rem;font-weight:700;color:var(--ai-violet)}
-.hamburger{background:none;border:none;cursor:pointer;font-size:1.3rem;line-height:1;padding:6px 8px;color:var(--ai-violet);font-family:inherit}
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199}
-@media(max-width:768px){
-  .mobile-header{display:flex}
-  .layout-wrapper{display:block;padding-top:48px}
-  .sidebar{position:fixed;top:0;left:0;height:100vh;transform:translateX(-100%);transition:transform .25s ease;z-index:200}
-  body.sidebar-open .sidebar{transform:translateX(0)}
-  body.sidebar-open .sidebar-overlay{display:block}
-  .container{padding:.7rem .75rem}
-  thead{display:none}
-  tr{display:flex;flex-direction:column;gap:.2rem;padding:.55rem 0;border-bottom:1px solid var(--border)}
-  td{border:none;padding:0}
-  .actions{justify-content:flex-start}
+/* ── Spécifique à la page Administration ── */
+.app-content > * { max-width: 1000px; }
+.panel-list .data-table thead th { cursor: default; }
+.panel-list .empty { font-size: var(--fs-sm); color: var(--ai-noir70); padding: var(--sp-3) var(--sp-4); }
+.count { min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ai-violet); color: var(--ai-blanc);
+  font-size: var(--fs-xs); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.count.alert { background: var(--ai-rouge); }
+.who-name { font-weight: 600; }
+.who-mail { font-size: var(--fs-sm); color: var(--ai-noir70); }
+.data-table .muted { font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.inline-form { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-top: var(--sp-3); }
+.inline-form .input { flex: 1; min-width: 220px; }
+.status { font-size: var(--fs-sm); margin-top: var(--sp-2); min-height: 1em; }
+.status.ok { color: var(--ai-violet); font-weight: 600; }
+.status.err { color: var(--ai-rouge); font-weight: 600; }
+code { font-size: var(--fs-sm); background: var(--ai-blanc); padding: 0 4px; border-radius: var(--radius); }
+@media (max-width: 768px) {
+  .panel-list thead { display: none; }
+  .panel-list tr { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--ai-gris); }
+  .panel-list .data-table tbody td { border: 0; padding: 0; background: none !important; }
+  .actions { justify-content: flex-start; }
 }
 </style>
 </head>
 <body>
 
+<!-- Icônes SVG monochromes -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-np" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-pre" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></symbol>
+</svg>
+
 <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
-<header class="mobile-header">
-  <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
-  <span class="mobile-header-title">Administration</span>
-  <span style="width:40px"></span>
+
+<div class="app">
+
+<header class="app-header">
+  <button class="hamburger" type="button" onclick="toggleSidebar()" aria-label="Ouvrir le menu">
+    <svg class="icon" style="width:22px;height:22px"><use href="#i-menu"/></svg>
+  </button>
+  <img class="logo" src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
+  <span class="sep"></span>
+  <div class="app-title">Veille AO<small>Plateforme de veille · AO DEV</small></div>
+  <div class="app-header-actions">
+    <a href="/pertinentes" class="header-notif" aria-label="Offres pertinentes qui me sont assignées">
+      <svg class="icon"><use href="#i-bell"/></svg>
+      <span class="sidebar-badge" id="mobile-badge" style="display:none"></span>
+    </a>
+  </div>
 </header>
 
-<div class="layout-wrapper">
-
-<nav class="sidebar">
-  <div class="sidebar-brand">
-    <img src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
-    <span class="sidebar-brand-sub">Plateforme de veille - AO DEV</span>
-  </div>
-  <span class="sidebar-label">Navigation</span>
+<nav class="sidebar" aria-label="Navigation principale">
+  <div class="sidebar-label">Navigation</div>
   <a class="sidebar-nav" href="/">Veille</a>
   <a class="sidebar-nav" href="/analyse">Analyse AO</a>
-  <a class="sidebar-nav" href="/pertinentes" style="justify-content:space-between">
-    Offres pertinentes
+  <a class="sidebar-nav" href="/pertinentes">Offres pertinentes
     <span class="sidebar-badge" id="assign-badge" style="display:none">0</span>
   </a>
   <a class="sidebar-nav" href="/params">Paramètres</a>
+  <a class="sidebar-nav active" href="/admin" aria-current="page">Administration</a>
   <div class="sidebar-spacer"></div>
   <div class="sidebar-user"></div>
 </nav>
 
-<div class="layout-content">
-<div class="container">
-
-  <div class="page-title">
-    <h2>🛡️ Administration</h2>
-    <p>Accès à la plateforme, emails et collecte des appels d'offres</p>
+<main class="app-content">
+  <div class="page-head">
+    <div>
+      <h1>Administration</h1>
+      <p>Accès à la plateforme, emails et collecte des appels d'offres</p>
+    </div>
   </div>
 
-  <div class="section-card">
-    <div class="section-card-head">
-      <h3>Demandes d'accès en attente</h3>
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Demandes d'accès en attente</span>
       <span class="count" id="count-pending">0</span>
     </div>
-    <div class="section-card-body" id="list-pending"><div class="empty">Chargement…</div></div>
-  </div>
+    <div class="table-wrap" id="list-pending"><div class="empty">Chargement…</div></div>
+  </section>
 
-  <div class="section-card">
-    <div class="section-card-head">
-      <h3>Membres</h3>
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Membres</span>
       <span class="count" id="count-approved">0</span>
     </div>
-    <div class="section-card-body" id="list-approved"><div class="empty">Chargement…</div></div>
-  </div>
+    <div class="table-wrap" id="list-approved"><div class="empty">Chargement…</div></div>
+  </section>
 
-  <div class="section-card">
-    <div class="section-card-head">
-      <h3>Accès refusés ou révoqués</h3>
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Accès refusés ou révoqués</span>
       <span class="count" id="count-blocked">0</span>
     </div>
-    <div class="section-card-body" id="list-blocked"><div class="empty">Chargement…</div></div>
-  </div>
+    <div class="table-wrap" id="list-blocked"><div class="empty">Chargement…</div></div>
+  </section>
 
-  <div class="section-card">
-    <div class="section-card-head"><h3>📧 Emails</h3></div>
-    <div class="section-card-body">
-      <div class="info-box">
+  <section class="panel">
+    <div class="panel-head"><span class="panel-title">Emails</span></div>
+    <div class="panel-body">
+      <div class="note note-context">
         Les notifications (assignations, demandes d'accès) partent du compte configuré dans les
         variables d'environnement Vercel <code>SMTP_USER</code> / <code>SMTP_PASSWORD</code>.
         Au plus <b>2 emails par heure</b> pour les demandes d'accès : au-delà, elles sont regroupées
         dans l'email suivant.
       </div>
       <form class="inline-form" id="form-smtp">
-        <input type="email" id="smtp-to" required placeholder="destinataire du test">
-        <button class="btn btn-outline" type="submit" id="btn-smtp">Envoyer un email de test</button>
+        <input type="email" class="input" id="smtp-to" required placeholder="destinataire du test" aria-label="Destinataire de l'email de test">
+        <button class="btn btn-outline" type="submit" id="btn-smtp"><svg class="icon"><use href="#i-mail"/></svg>Envoyer un email de test</button>
       </form>
-      <div class="status" id="smtp-status"></div>
+      <div class="status" id="smtp-status" role="status"></div>
     </div>
-  </div>
+  </section>
 
-  <div class="section-card">
-    <div class="section-card-head">
-      <h3>🔄 Journal des collectes</h3>
-      <button class="btn btn-outline" type="button" onclick="loadCollect()">Rafraîchir</button>
+  <section class="panel panel-list">
+    <div class="panel-head">
+      <span class="panel-title">Journal des collectes</span>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="loadCollect()"><svg class="icon"><use href="#i-refresh"/></svg>Rafraîchir</button>
     </div>
-    <div class="section-card-body" id="list-collect"><div class="empty">Chargement…</div></div>
-  </div>
+    <div class="table-wrap" id="list-collect"><div class="empty">Chargement…</div></div>
+  </section>
+</main>
 
-</div>
-</div>
-</div>
+</div><!-- /.app -->
 
 <img src="/static/sigle_A_rouge_HD.png" alt="" class="ai-watermark" aria-hidden="true">
-
 <script>
 'use strict';
 
@@ -238,7 +185,7 @@ function btn(label, cls, id, body, confirmText){
 
 function table(rows, cols){
   if(!rows.length) return '';
-  return `<table><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  return `<table class="data-table"><thead><tr>${cols.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 
 function render(){
@@ -268,14 +215,14 @@ function render(){
       : btn('Révoquer', 'btn-danger', u.id, {status:'revoked'}, `Révoquer l'accès de ${u.email} ?`);
     return `<tr>
       <td>${who(u)}</td>
-      <td><span class="tag ${u.role === 'admin' ? 'admin' : ''}">${u.role === 'admin' ? 'Admin' : 'Membre'}</span></td>
+      <td><span class="tag ${u.role === 'admin' ? 'tag-violet' : ''}">${u.role === 'admin' ? 'Admin' : 'Membre'}</span></td>
       <td class="muted">validé le ${fmtTs(u.decided_at)}</td>
       <td><div class="actions">${roleBtn}${revokeBtn}</div></td></tr>`;
   }), ['Personne', 'Rôle', 'Validation', '']) : '<div class="empty">Aucun membre.</div>';
 
   document.getElementById('list-blocked').innerHTML = blocked.length ? table(blocked.map(u => `<tr>
       <td>${who(u)}</td>
-      <td><span class="tag ${u.status}">${u.status === 'rejected' ? 'Refusé' : 'Révoqué'}</span></td>
+      <td><span class="tag tag-alerte">${u.status === 'rejected' ? 'Refusé' : 'Révoqué'}</span></td>
       <td class="muted">le ${fmtTs(u.decided_at)}</td>
       <td><div class="actions">${btn('Réactiver', 'btn-outline', u.id, {status:'approved'}, `Rétablir l'accès de ${u.email} ?`)}</div></td></tr>`),
     ['Personne', 'Statut', 'Décision', '']) : '<div class="empty">Aucun.</div>';
@@ -311,9 +258,9 @@ document.getElementById('form-smtp').addEventListener('submit', async (ev) => {
     });
     const d = await r.json();
     if(!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
-    st.className = 'status ok'; st.textContent = '✓ ' + d.message;
+    st.className = 'status ok'; st.textContent = 'Envoyé : ' + d.message;
   }catch(e){
-    st.className = 'status err'; st.textContent = '✗ ' + e.message;
+    st.className = 'status err'; st.textContent = 'Échec : ' + e.message;
   }finally{
     document.getElementById('btn-smtp').disabled = false;
   }
@@ -329,8 +276,8 @@ async function loadCollect(){
       const run = (d.sources || {})[s.key];
       let res = '<span class="muted">jamais collectée</span>';
       if(run && !run.finished_at) res = '<span class="tag">en cours…</span>';
-      else if(run && run.error) res = `<span class="tag err" title="${esc(run.error)}">Erreur</span> <span class="muted">${esc(run.error.slice(0, 80))}</span>`;
-      else if(run) res = `<span class="tag ok">OK</span> <span class="muted">${run.fetched ?? 0} lus · ${run.inserted ?? 0} nouveaux</span>`;
+      else if(run && run.error) res = `<span class="tag tag-alerte" title="${esc(run.error)}">Erreur</span> <span class="muted">${esc(run.error.slice(0, 80))}</span>`;
+      else if(run) res = `<span class="tag">OK</span> <span class="muted">${run.fetched ?? 0} lus · ${run.inserted ?? 0} nouveaux</span>`;
       return `<tr><td class="who-name">${esc(s.label)}</td><td class="muted">${run ? fmtTs(run.started_at) : '—'}</td>
         <td>${run && !run.triggered_by ? '<span class="muted">automatique</span>' : (run ? '<span class="muted">manuelle</span>' : '')}</td>
         <td>${res}</td></tr>`;

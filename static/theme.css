@@ -169,6 +169,8 @@ a:hover { color: var(--ai-rouge); }
 .btn-primary:hover:not(:disabled), .btn-secondary:hover:not(:disabled) { filter: brightness(.88); color: var(--ai-blanc); }
 .btn-outline { background: var(--ai-blanc); color: var(--ai-violet); border-color: var(--ai-trait); }
 .btn-outline:hover:not(:disabled) { border-color: var(--ai-violet); }
+.btn-danger { background: var(--ai-blanc); color: var(--ai-rouge); border-color: var(--ai-rouge-clair); }
+.btn-danger:hover:not(:disabled) { background: var(--ai-rouge-clair); border-color: var(--ai-rouge); }
 .btn-ghost { background: transparent; color: var(--ai-violet); padding: 0 var(--sp-2); }
 .btn-ghost:hover:not(:disabled) { background: var(--ai-gris-tres-clair); }
 .btn-sm { height: 26px; padding: 0 10px; font-size: var(--fs-sm); }

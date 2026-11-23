@@ -6,209 +6,124 @@
 <link rel="icon" href="/static/favicon.ico" sizes="32x32">
 <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-<title>Paramètres — Assemblage ingénierie</title>
+<title>Paramètres — Veille AO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
 <script src="/static/auth.js"></script>
 <style>
-:root {
-  --ai-rouge:       #E30513;
-  --ai-violet:      #30323E;
-  --ai-gris:        #DFE4E8;
-  --ai-rouge-clair: #F9E1E3;
-  --ai-gris-clair:  #F2F2F2;
-  --ai-noir70:      #4D4D4D;
-  --surface:        #FFFFFF;
-  --border:         #DFE4E8;
-  --radius:         4px;
-  --shadow:         0 1px 4px rgba(0,0,0,.09);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Open Sans',-apple-system,sans-serif;background:var(--ai-gris-clair);
-  color:#000;font-size:13.5px;line-height:1.5}
-
-/* ── Sidebar ── */
-.layout-wrapper{display:flex;min-height:100vh}
-.sidebar{width:175px;flex-shrink:0;background:var(--ai-gris);
-  position:sticky;top:0;height:100vh;overflow-y:auto;
-  display:flex;flex-direction:column;
-  border-right:1px solid #CDD2D6}
-.sidebar-brand{padding:1rem 1rem .85rem;border-bottom:1px solid #CDD2D6;
-  display:flex;flex-direction:column;gap:.45rem}
-.sidebar-brand img{width:100%;height:auto;max-width:130px}
-.sidebar-brand-sub{font-size:.68rem;color:var(--ai-noir70);line-height:1.35}
-.sidebar-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
-  letter-spacing:.08em;color:var(--ai-noir70);padding:.85rem 1rem .25rem}
-.sidebar-nav{display:flex;align-items:center;
-  padding:.6rem 1rem;font-size:.82rem;font-weight:600;
-  color:var(--ai-violet);text-decoration:none;
-  transition:background .12s;border-left:3px solid transparent;line-height:1.2}
-.sidebar-nav:hover{background:rgba(48,50,62,.1)}
-.sidebar-nav.active{color:var(--ai-rouge);border-left-color:var(--ai-rouge);
-  background:rgba(227,5,19,.06)}
-.sidebar-badge{display:inline-flex;align-items:center;justify-content:center;
-  min-width:16px;height:16px;padding:0 4px;background:var(--ai-rouge);
-  color:#fff;border-radius:8px;font-size:.62rem;font-weight:700;
-  margin-left:auto;flex-shrink:0}
-.sidebar-spacer{flex:1}
-.sidebar-user{padding:.55rem 1rem .5rem;border-top:1px solid #CDD2D6}
-.sidebar-user-label{font-size:.62rem;font-weight:700;text-transform:uppercase;
-  letter-spacing:.08em;color:var(--ai-noir70);margin-bottom:.3rem}
-.layout-content{flex:1;min-width:0}
-
-/* ── Layout ── */
-.container{max-width:700px;margin:0 auto;padding:1.4rem 1rem}
-
-/* ── Page title ── */
-.page-title{margin-bottom:1.4rem}
-.page-title h2{font-size:1.1rem;font-weight:700;color:var(--ai-violet)}
-.page-title p{font-size:.8rem;color:var(--ai-noir70);margin-top:.2rem}
-
-/* ── Section card ── */
-.section-card{background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:1.2rem;
-  overflow:hidden}
-.section-card-head{display:flex;align-items:center;justify-content:space-between;
-  padding:.7rem 1rem;border-bottom:1px solid var(--border);
-  background:var(--ai-gris-clair)}
-.section-card-head h3{font-size:.88rem;font-weight:700;color:var(--ai-violet)}
-.section-card-body{padding:1rem}
-
-/* ── Compte ── */
-.account{display:grid;grid-template-columns:120px 1fr;gap:.45rem .8rem;font-size:.84rem}
-.account dt{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ai-noir70);padding-top:.1rem}
-.account dd{color:#000}
-
-/* ── Team table ── */
-.team-table{width:100%;border-collapse:collapse}
-.team-table th{text-align:left;font-size:.71rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:.06em;color:var(--ai-noir70);
-  padding:.3rem .5rem .45rem;border-bottom:2px solid var(--border)}
-.team-table td{padding:.45rem .5rem;border-bottom:1px solid var(--ai-gris-clair);
-  vertical-align:middle;font-size:.84rem}
-.team-table tr:last-child td{border-bottom:none}
-.tag{display:inline-block;font-size:.68rem;font-weight:700;padding:.05rem .45rem;border-radius:3px;
-  background:var(--ai-gris);color:var(--ai-violet)}
-.tag.admin{background:var(--ai-violet);color:#fff}
-
-/* ── Buttons ── */
-.btn{padding:.32rem .85rem;border:none;border-radius:3px;cursor:pointer;
-  font-size:.82rem;font-weight:600;transition:all .12s;font-family:inherit;text-decoration:none;display:inline-block}
-.btn-outline{background:transparent;border:1px solid var(--border);color:#000}
-.btn-outline:hover{border-color:var(--ai-violet);color:var(--ai-violet)}
-
-/* ── Info box ── */
-.info-box{background:var(--ai-gris-clair);border-radius:3px;
-  padding:.65rem .85rem;font-size:.8rem;color:var(--ai-noir70);
-  border-left:3px solid var(--ai-violet);line-height:1.55}
-.info-box b{color:var(--ai-violet)}
-
-/* Watermark */
-.ai-watermark{position:fixed;bottom:16px;right:16px;width:48px;
-  opacity:.18;pointer-events:none;z-index:100}
-
-/* ── Mobile ── */
-.mobile-header{display:none;align-items:center;height:48px;
-  background:var(--ai-gris);border-bottom:1px solid #CDD2D6;
-  padding:0 .75rem;position:fixed;top:0;left:0;right:0;z-index:190;gap:.5rem}
-.mobile-header-title{flex:1;text-align:center;font-size:.84rem;font-weight:700;
-  color:var(--ai-violet);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hamburger{background:none;border:none;cursor:pointer;font-size:1.3rem;
-  line-height:1;padding:6px 8px;color:var(--ai-violet);font-family:inherit;flex-shrink:0}
-.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199}
-@media(max-width:768px){
-  .mobile-header{display:flex}
-  .layout-wrapper{display:block;padding-top:48px}
-  .sidebar{position:fixed;top:0;left:0;height:100vh;
-    transform:translateX(-100%);transition:transform .25s ease;z-index:200;overflow-y:auto}
-  body.sidebar-open .sidebar{transform:translateX(0)}
-  body.sidebar-open .sidebar-overlay{display:block}
-  .container{padding:.7rem .75rem}
-  .account{grid-template-columns:1fr}
-  .team-table thead{display:none}
-  .team-table tr{display:flex;flex-direction:column;
-    border:1px solid var(--border);border-radius:4px;
-    padding:.6rem .7rem;margin-bottom:.6rem;background:#fff}
-  .team-table td{border:none;padding:.15rem 0}
+/* ── Spécifique à la page Paramètres ── */
+.app-content > * { max-width: 820px; }
+.account { display: grid; grid-template-columns: 120px 1fr; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-md); }
+.account dt { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ai-noir70); line-height: 20px; }
+.data-table thead th { cursor: default; }
+@media (max-width: 768px) {
+  .account { grid-template-columns: 1fr; gap: 2px; }
+  .account dd { margin-bottom: var(--sp-2); }
+  #team-table thead { display: none; }
+  #team-table tr { display: flex; flex-direction: column; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--ai-gris); }
+  #team-table td { border: 0; padding: 2px 0; background: none !important; }
 }
 </style>
 </head>
 <body>
 
+<!-- Icônes SVG monochromes -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-np" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></symbol>
+  <symbol id="i-pre" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3v5h5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 21v-5h-5"/></symbol>
+  <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></symbol>
+</svg>
+
 <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
-<header class="mobile-header">
-  <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">☰</button>
-  <span class="mobile-header-title">Paramètres</span>
-  <span style="width:40px"></span>
+
+<div class="app">
+
+<header class="app-header">
+  <button class="hamburger" type="button" onclick="toggleSidebar()" aria-label="Ouvrir le menu">
+    <svg class="icon" style="width:22px;height:22px"><use href="#i-menu"/></svg>
+  </button>
+  <img class="logo" src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
+  <span class="sep"></span>
+  <div class="app-title">Veille AO<small>Plateforme de veille · AO DEV</small></div>
+  <div class="app-header-actions">
+    <a href="/pertinentes" class="header-notif" aria-label="Offres pertinentes qui me sont assignées">
+      <svg class="icon"><use href="#i-bell"/></svg>
+      <span class="sidebar-badge" id="mobile-badge" style="display:none"></span>
+    </a>
+  </div>
 </header>
 
-<div class="layout-wrapper">
-
-<nav class="sidebar">
-  <div class="sidebar-brand">
-    <img src="/static/logo_Ai_rouge_HD.png" alt="Assemblage ingénierie">
-    <span class="sidebar-brand-sub">Plateforme de veille - AO DEV</span>
-  </div>
-  <span class="sidebar-label">Navigation</span>
+<nav class="sidebar" aria-label="Navigation principale">
+  <div class="sidebar-label">Navigation</div>
   <a class="sidebar-nav" href="/">Veille</a>
   <a class="sidebar-nav" href="/analyse">Analyse AO</a>
-  <a class="sidebar-nav" href="/pertinentes" style="justify-content:space-between">
-    Offres pertinentes
+  <a class="sidebar-nav" href="/pertinentes">Offres pertinentes
     <span class="sidebar-badge" id="assign-badge" style="display:none">0</span>
   </a>
-  <a class="sidebar-nav active" href="/params">Paramètres</a>
+  <a class="sidebar-nav active" href="/params" aria-current="page">Paramètres</a>
   <div class="sidebar-spacer"></div>
   <div class="sidebar-user"></div>
 </nav>
 
-<div class="layout-content">
-<div class="container">
-
-  <div class="page-title">
-    <h2>⚙️ Paramètres</h2>
-    <p>Votre compte et l'équipe ayant accès à la plateforme</p>
+<main class="app-content">
+  <div class="page-head">
+    <div>
+      <h1>Paramètres</h1>
+      <p>Votre compte et l'équipe ayant accès à la plateforme</p>
+    </div>
   </div>
 
-  <div class="section-card">
-    <div class="section-card-head"><h3>👤 Mon compte</h3></div>
-    <div class="section-card-body">
+  <section class="panel">
+    <div class="panel-head"><span class="panel-title">Mon compte</span></div>
+    <div class="panel-body">
       <dl class="account">
         <dt>Nom</dt><dd id="acc-name">—</dd>
         <dt>Email</dt><dd id="acc-email">—</dd>
         <dt>Rôle</dt><dd id="acc-role">—</dd>
       </dl>
-      <div style="margin-top:1rem">
+      <div style="margin-top:var(--sp-4)">
         <button class="btn btn-outline" type="button" onclick="VeilleAuth.signOut()">Se déconnecter</button>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="section-card">
-    <div class="section-card-head">
-      <h3>👥 Équipe</h3>
-      <a class="btn btn-outline" href="/admin" id="admin-link" style="display:none">Gérer les accès →</a>
+  <section class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Équipe</span>
+      <a class="btn btn-outline btn-sm" href="/admin" id="admin-link" style="display:none">Gérer les accès</a>
     </div>
-    <div class="section-card-body">
-      <div class="info-box" style="margin-bottom:.9rem">
+    <div class="panel-body">
+      <div class="note note-context">
         L'équipe est constituée des <b>comptes validés</b>. Chacun se connecte avec son compte
         Google <b>@assemblage.net</b> ; les nouvelles demandes d'accès sont validées par un
         administrateur. Les assignations d'AO envoient un email au membre concerné.
       </div>
-      <table class="team-table">
-        <thead><tr><th>Nom</th><th>Email</th><th style="width:90px">Rôle</th></tr></thead>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table" id="team-table">
+        <thead><tr><th>Nom</th><th>Email</th><th style="width:110px">Rôle</th></tr></thead>
         <tbody id="team-tbody"><tr><td colspan="3">Chargement…</td></tr></tbody>
       </table>
     </div>
-  </div>
+  </section>
+</main>
 
-</div><!-- /container -->
-</div><!-- /layout-content -->
-</div><!-- /layout-wrapper -->
+</div><!-- /.app -->
 
 <img src="/static/sigle_A_rouge_HD.png" alt="" class="ai-watermark" aria-hidden="true">
-
 <script>
 'use strict';
 
@@ -226,9 +141,9 @@ async function loadTeam(){
       <tr>
         <td>${esc(m.name)}</td>
         <td>${esc(m.email)}</td>
-        <td><span class="tag ${m.role === 'admin' ? 'admin' : ''}">${m.role === 'admin' ? 'Admin' : 'Membre'}</span></td>
+        <td><span class="tag ${m.role === 'admin' ? 'tag-violet' : ''}">${m.role === 'admin' ? 'Admin' : 'Membre'}</span></td>
       </tr>`).join('')
-      : '<tr><td colspan="3" style="font-style:italic;color:var(--ai-noir70)">Aucun membre validé.</td></tr>';
+      : '<tr><td colspan="3" class="muted">Aucun membre validé.</td></tr>';
   }catch(e){
     tbody.innerHTML = `<tr><td colspan="3" style="color:var(--ai-rouge)">Erreur de chargement : ${esc(e.message)}</td></tr>`;
   }
