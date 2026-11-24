@@ -136,6 +136,24 @@
           <label class="chip"><input type="checkbox" class="f-bailleur" value="TED" checked>UE (TED)</label>
           <label class="chip"><input type="checkbox" class="f-bailleur" value="Expertise France" checked>Expertise France</label>
           <label class="chip"><input type="checkbox" class="f-bailleur" value="UNGM" checked>ONU (UNGM)</label>
+          <label class="chip"><input type="checkbox" class="f-bailleur" value="KfW" checked>KfW</label>
+        </div>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label" data-toggle title="Tout cocher / décocher" onclick="toggleGroup('.f-nature')">Nature</span>
+        <div>
+          <div class="chip-group">
+            <label class="chip"><input type="checkbox" class="f-nature" value="Prestation intellectuelle" checked>Prestation intellectuelle</label>
+            <label class="chip"><input type="checkbox" class="f-nature" value="À déterminer" checked>À déterminer</label>
+            <label class="chip"><input type="checkbox" class="f-nature" value="Travaux">Travaux</label>
+            <label class="chip"><input type="checkbox" class="f-nature" value="Fournitures">Fournitures</label>
+            <label class="chip"><input type="checkbox" class="f-nature" value="Autres">Autres</label>
+          </div>
+          <p class="legend">
+            Déduite du type d'avis et du titre ·
+            <b>Autres</b> : services courants (logistique, événementiel, location…), offres d'emploi, avis de résultats ·
+            <b>À déterminer</b> : aucun indice fiable, affiché par précaution
+          </p>
         </div>
       </div>
       <div class="filter-row">
@@ -417,6 +435,15 @@ const TYPE_FULL_NAMES = {
 // Libellés propres à un bailleur (prioritaires sur TYPE_FULL_NAMES)
 const TYPE_LABELS_BY_BAILLEUR = {
   'UNGM': { 'RFP': 'Demande de propositions', 'EOI': "AMI (appel à manifestation d'intérêt)" },
+  'KfW': {
+    'Tender Notice': "Appel d'offres",
+    'Prequalification': 'Préqualification',
+    'Expression of Interest': "Manifestation d'intérêt",
+    'Expression of Interest - Prequalification': "Manifestation d'intérêt / préqualification",
+    'Expression of Interest/ Re-Tender': "Manifestation d'intérêt (relance)",
+    'Tender with Postqualification': "Appel d'offres (postqualification)",
+    'Re-Tender': "Appel d'offres relancé",
+  },
 };
 
 function typeLabel(abbr, bailleur){
@@ -597,9 +624,9 @@ function buildTypeFilters(notices){
     byBailleur[b].add(abbr);
   }
 
-  const ORDER    = ['Banque Mondiale','PNUD','GIZ','BERD','TED','Expertise France','UNGM'];
-  const SHORT    = {'Banque Mondiale':'BM','PNUD':'PNUD','GIZ':'GIZ','BERD':'BERD','TED':'TED','Expertise France':'EF','UNGM':'UNGM'};
-  const COLCLS   = {'Banque Mondiale':'bm','PNUD':'pnud','GIZ':'giz','BERD':'berd','TED':'ted','Expertise France':'ef','UNGM':'ungm'};
+  const ORDER    = ['Banque Mondiale','PNUD','GIZ','BERD','TED','Expertise France','UNGM','KfW'];
+  const SHORT    = {'Banque Mondiale':'BM','PNUD':'PNUD','GIZ':'GIZ','BERD':'BERD','TED':'TED','Expertise France':'EF','UNGM':'UNGM','KfW':'KfW'};
+  const COLCLS   = {'Banque Mondiale':'bm','PNUD':'pnud','GIZ':'giz','BERD':'berd','TED':'ted','Expertise France':'ef','UNGM':'ungm','KfW':'kfw'};
   const KNOWN    = ['REOI','GPN','RFP','ITB','CFP','RFB','EOI','RFQ','IC','LTA','OTHER'];
 
   const sortAbbrs = arr => [...arr].sort((a,z)=>{
@@ -719,6 +746,7 @@ function applyFilters(){
   const langues     = checked('f-langue');
   const types       = checked('f-type');
   const pertinences = checked('f-pertinence');
+  const natures     = checked('f-nature');
   const keywords    = paramsKeywords.map(k => k.toLowerCase());
   const excludes    = excludeKeywords.map(k => k.toLowerCase());
   const dlFrom      = document.getElementById('dl-from').value;
@@ -733,6 +761,7 @@ function applyFilters(){
   const offeredLangues     = offered('f-langue');
   const offeredPertinences = offered('f-pertinence');
   const offeredTypes       = offered('f-type');
+  const offeredNatures     = offered('f-nature');
 
   // 1er passage : tous les filtres sauf exclusion
   // Règle commune : une case décochée exclut ses AO, même si toute la section
@@ -750,6 +779,8 @@ function applyFilters(){
     if(isOff(offeredLangues, langues, n.langue)) return false;
     // Pertinence
     if(isOff(offeredPertinences, pertinences, n.pertinence)) return false;
+    // Nature du marché (calculée par le serveur)
+    if(isOff(offeredNatures, natures, n.nature)) return false;
     // Type (bailleur||abbr) — notices sans type_avis passent toujours
     const typeAbbr = abbrType(n.type_avis||'');
     if(typeAbbr && isOff(offeredTypes, typeAbbrs, n.bailleur + '||' + typeAbbr)) return false;
@@ -841,7 +872,7 @@ function renderTable(){
         ${n.projet&&n.projet!==n.titre?`<span class="sub" title="${esc(n.projet)}">${esc(trunc(n.projet,80))}</span>`:''}
       </td>
       <td class="c-secteur">${esc(n.secteur||'')}</td>
-      <td class="c-type" title="${esc(n.type_avis||'')}">${esc(abbrType(n.type_avis||''))}</td>
+      <td class="c-type" title="${esc((n.type_avis||'') + (n.nature ? ' · Nature : ' + n.nature : ''))}">${esc(abbrType(n.type_avis||''))}</td>
       <td class="c-mode" title="${esc(n.mode_selection||'')}">${esc(trunc(n.mode_selection||'',15))}</td>
       <td class="c-langue">${esc(n.langue||'')}</td>
       <td class="date c-pub">${fmtDate(n.date_publication)}</td>
@@ -864,7 +895,7 @@ function applyAndRender(){ applyFilters(); renderTable(); }
 function resetFilters(){
   // Retour aux réglages par défaut de chaque case (attribut « checked » du HTML,
   // y compris pour les types d'AO générés) : PNUD décoché, « À vérifier » coché…
-  document.querySelectorAll('.f-bailleur,.f-langue,.f-pertinence,.f-pubstate,.f-triage,.f-type')
+  document.querySelectorAll('.f-bailleur,.f-nature,.f-langue,.f-pertinence,.f-pubstate,.f-triage,.f-type')
     .forEach(c=>{ c.checked=c.defaultChecked; });
   document.getElementById('dl-from').value=new Date().toISOString().slice(0,10);
   document.getElementById('dl-to').value='';
@@ -938,7 +969,7 @@ async function init(){
   document.getElementById('dl-from').value=new Date().toISOString().slice(0,10);
 
   // Attach listeners to static checkboxes
-  document.querySelectorAll('.f-bailleur,.f-langue,.f-pertinence,.f-pubstate,.f-triage').forEach(c=>{
+  document.querySelectorAll('.f-bailleur,.f-nature,.f-langue,.f-pertinence,.f-pubstate,.f-triage').forEach(c=>{
     c.addEventListener('change',applyAndRender);
   });
 

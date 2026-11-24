@@ -10,6 +10,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 import supa
+from nature import nature_of
 from supa import eq, in_
 
 log = logging.getLogger(__name__)
@@ -48,7 +49,10 @@ def get_notices(user, filters: "dict | None" = None) -> list:
         params["date_limite"] = f"gte.{f['deadline_from']}"
     elif f.get("deadline_to"):
         params["date_limite"] = f"lte.{f['deadline_to']}"
-    return supa.as_user(user.token).select("veilleao_notices", params, all_rows=True)
+    rows = supa.as_user(user.token).select("veilleao_notices", params, all_rows=True)
+    for r in rows:   # nature du marché : calculée à la volée (voir nature.py)
+        r["nature"] = nature_of(r)
+    return rows
 
 
 def get_stats(user) -> dict:
