@@ -442,6 +442,8 @@ const TYPE_LABELS_BY_BAILLEUR = {
     'Expression of Interest - Prequalification': "Manifestation d'intérêt / préqualification",
     'Expression of Interest/ Re-Tender': "Manifestation d'intérêt (relance)",
     'Tender with Postqualification': "Appel d'offres (postqualification)",
+    'Deadline Extension/ Tender with Postqualification': "Report de date · appel d'offres (postqualification)",
+    'Deadline Extension': 'Report de date',
     'Re-Tender': "Appel d'offres relancé",
   },
 };
@@ -609,6 +611,9 @@ const TYPE_DEFAULT_OFF = new Set([
   'TED||can-standard',
   'TED||can-social',
 ]);
+// KfW — pas d'appel d'offres avec postqualification ni de report de date
+// (les sous-types KfW se combinent : « Deadline Extension/ Tender with Postqualification »…)
+const KFW_TYPE_DEFAULT_OFF = /postqualification|deadline extension/i;
 
 // ── Dynamic type filter — tableau par bailleur ─────────────────────────────
 function buildTypeFilters(notices){
@@ -646,6 +651,8 @@ function buildTypeFilters(notices){
       let chk;
       if(b === 'Expertise France'){
         chk = (abbr === 'Contrat de prestation de services') ? ' checked' : '';
+      } else if(b === 'KfW' && KFW_TYPE_DEFAULT_OFF.test(abbr)){
+        chk = '';
       } else {
         chk = TYPE_DEFAULT_OFF.has(key) ? '' : ' checked';
       }
