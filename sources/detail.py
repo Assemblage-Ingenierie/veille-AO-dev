@@ -1186,6 +1186,45 @@ def _fetch_ungm(lien: str) -> dict:
     return result
 
 
+# ── KfW (GTAI) ────────────────────────────────────────────────────────────────
+
+def _fetch_kfw(lien: str) -> dict:
+    """Fiche publique gtai.de : tableau (référence, objet…) et texte « Project » /
+    « Requested Services ». Les documents demandent un compte GTAI : lien vers la fiche."""
+    if not lien:
+        return {}
+    result = {}
+    try:
+        soup = _soup(lien, timeout=40)
+        art = soup.find("article") or soup
+        h3 = art.select_one(".headlineBlock h3")
+        if h3:
+            result["type_detail"] = h3.get_text(" ", strip=True)
+        for li in art.select("ul.structure-table li"):
+            name = li.find(class_="attrName")
+            value = li.find(class_="attrValue")
+            if not name or not value:
+                continue
+            key = name.get_text(strip=True).lower()
+            val = value.get_text(" ", strip=True)
+            if key.startswith("reference"):
+                result["reference"] = val
+            elif key.startswith("deadline"):
+                result["deadline_detail"] = val
+            elif key.startswith("subject"):
+                result["projet_detail"] = val
+            elif key.startswith("financing"):
+                result["bureau"] = val
+        body = art.select_one(".kurztext")
+        if body:
+            result["description"] = body.get_text("\n", strip=True)[:3000]
+        result["documents"] = [{"name": "Fiche de l'avis sur GTAI (documents : compte GTAI gratuit)",
+                                "url": lien}]
+    except Exception as e:
+        log.warning(f"KfW detail scrape failed ({lien}): {e}")
+    return result
+
+
 # ── Dispatcher public ──────────────────────────────────────────────────────────
 
 def fetch_detail(notice_id: str, lien: str, bailleur: str,
@@ -1207,6 +1246,8 @@ def fetch_detail(notice_id: str, lien: str, bailleur: str,
             return _fetch_afd(notice_id, lien)
         elif bailleur == "UNGM":
             return _fetch_ungm(lien)
+        elif bailleur == "KfW":
+            return _fetch_kfw(lien)
         else:
             return {"error": f"Bailleur inconnu : {bailleur}"}
     except Exception as e:

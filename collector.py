@@ -25,11 +25,12 @@ SOURCES = {
     "ted":  ("TED",              "sources.ted",              "fetch_ted",              True),
     "ef":   ("Expertise France", "sources.expertise_france", "fetch_expertise_france", False),
     "ungm": ("UNGM",             "sources.ungm",             "fetch_ungm",             False),
+    "kfw":  ("KfW",              "sources.kfw",              "fetch_kfw",              False),
 }
 
 # Sources qui savent ne demander que les avis publiés depuis la dernière lecture
 # réussie : leur fonction de collecte reçoit since=<datetime> (None = tout relire).
-INCREMENTAL = {"ungm"}
+INCREMENTAL = {"ungm", "kfw"}
 
 
 def list_sources() -> list:
